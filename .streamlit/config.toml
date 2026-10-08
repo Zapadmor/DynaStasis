@@ -1,0 +1,52 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# DynaStasie — Streamlit configuration
+# Couleurs : src/styles.toml (lu par src/styles.py, pas par Streamlit)
+# ─────────────────────────────────────────────────────────────────────────────
+
+[theme]
+primaryColor             = "#00ADB5"
+backgroundColor          = "#222831"
+secondaryBackgroundColor = "#393E46"
+textColor                = "#EEEEEE"
+font                     = "Satoshi"
+headingFont              = "Satoshi"
+baseFontWeight           = 300
+headingFontWeights       = [600, 600, 600, 500, 400, 400]
+
+# ── Déclaration police auto-hébergée (Satoshi Variable) ───────────────────────
+# Fichiers dans src/app/static/fonts/ — servis à /app/static/fonts/<fichier>
+# ref : https://docs.streamlit.io/develop/concepts/configuration/theming-customize-fonts
+[[theme.fontFaces]]
+family = "Satoshi"
+url    = "app/static/fonts/Satoshi-Variable.woff2"
+weight = "300 900"
+style  = "normal"
+
+[[theme.fontFaces]]
+family = "Satoshi"
+url    = "app/static/fonts/Satoshi-Variable.woff"
+weight = "300 900"
+style  = "normal"
+
+[[theme.fontFaces]]
+family = "Satoshi"
+url    = "app/static/fonts/Satoshi-Variable.ttf"
+weight = "300 900"
+style  = "normal"
+
+
+[server]
+headless             = true
+address              = "0.0.0.0"    # bind sur toutes les interfaces (requis pour Docker)
+port                 = 8501
+enableXsrfProtection = true
+# Active le dossier static/ (résolu depuis src/app/ — répertoire du script)
+# Accessible via /app/static/<fichier> dans le navigateur
+# Requis pour [[theme.fontFaces]] avec url = "app/static/..."
+enableStaticServing  = true
+
+[browser]
+gatherUsageStats = false
+
+[runner]
+magicEnabled = false

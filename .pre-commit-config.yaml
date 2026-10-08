@@ -1,0 +1,24 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.14
+    hooks:
+      - id: ruff # linter
+        args: [--fix]
+      - id: ruff-format # formateur (remplace black)
+
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        types_or: [css, yaml, json]
+        exclude: "^(env/|archives/)"
+
+  - repo: local
+    hooks:
+      - id: vulture
+        name: vulture — code mort
+        language: system
+        entry: env/bin/vulture
+        args: [src, bots, main.py, --min-confidence, "80"]
+        pass_filenames: false
+        types: [python]

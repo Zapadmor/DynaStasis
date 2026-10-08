@@ -1,0 +1,14 @@
+[Unit]
+Description=DynaStasie — sync Intervals.icu + cascade rollups
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__USER__
+WorkingDirectory=__WORKDIR__
+ExecStart=docker exec dynastasie-streamlit python main.py vigueur
+StandardOutput=journal
+StandardError=journal
+# Laisser jusqu'à 3 min pour que la connexion réseau soit stable après réveil
+TimeoutStartSec=180

@@ -1,0 +1,119 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# DynaStasie — source unique de vérité des couleurs
+#
+# RÈGLE STRICTE : toute valeur hex ou rgba est définie ici et nulle part ailleurs.
+# src/styles.py parse ce fichier ; les vues importent depuis src.styles.
+#
+# Palette "Deep Space" :
+#   Sky Blue  (Light)  #8ecae6  — texte principal sur fond sombre
+#   Blue Green         #219ebc  — accents secondaires
+#   Deep Space Blue    #023047  — fond principal (JAMAIS utilisé comme couleur de tracé)
+#   Amber Flame        #ffb703  — boutons, liens, interactions primaires
+#   Tiger Orange       #fb8500  — alertes / emphase forte
+# ─────────────────────────────────────────────────────────────────────────────
+
+[colors.palette]
+sky_blue   = "#8ecae6"   # texte principal, axes graphiques
+blue_green = "#219ebc"   # accents secondaires, séries données
+deep_space = "#023047"   # fond principal (NE PAS utiliser comme couleur de tracé)
+amber      = "#ffb703"   # interactions primaires, rang S, score pentagone
+tiger      = "#fb8500"   # alertes, emphase forte, rang C
+
+[colors.misc]
+gray        = "#666666"
+white       = "#ffffff"
+transparent = "rgba(0,0,0,0)"
+
+# Rangs quotidiens — badges avec texte blanc, visibles sur fond #023047
+[colors.rank]
+S = "#ffb703"   # Amber Flame — parfait (or)
+A = "#219ebc"   # Blue Green — excellent
+B = "#8ecae6"   # Sky Blue — bien
+C = "#fb8500"   # Tiger Orange — passable
+D = "#666666"   # Gris — à retravailler
+
+# Mode séquenceur — badges visibles sur fond sombre
+[colors.mode]
+ecole        = "#219ebc"   # Blue Green — mode défaut
+Entreprise = "#ffb703"   # Amber Flame — mode actif
+
+[colors.vigueur]
+ctl_moy  = "#219ebc"                # charge chronique (fitness)
+atl_moy  = "#fb8500"                # charge aiguë (fatigue)
+tsb_moy  = "#8ecae6"                # balance (fraîcheur)
+optimal  = "#32c850"                # zone OPTIMAL (-30 à -10) — vert vif
+fresh    = "#00be8c"                # zone FRESH (5 à 20) — vert clair
+tss_bar  = "rgba(142,202,230,0.15)" # barres TSS sur axe secondaire
+tsb_fill = "rgba(142,202,230,0.04)" # remplissage sous courbe TSB
+
+[colors.sankey_nodes]
+revenus    = "#ffb703"
+budget     = "#fb8500"
+invest     = "#219ebc"
+pea        = "#023047"
+av_fe      = "#8ecae6"
+av_uc      = "#8ecae6"
+logement   = "#fb8500"
+vie        = "#ffb703"
+abos       = "#8ecae6"
+transports = "#219ebc"
+
+[colors.sankey_links]
+revenus    = "rgba(255,183,3,0.30)"
+budget     = "rgba(251,133,0,0.25)"
+invest     = "rgba(33,158,188,0.30)"
+logement   = "rgba(251,133,0,0.30)"
+vie        = "rgba(255,183,3,0.25)"
+abos       = "rgba(142,202,230,0.30)"
+transports = "rgba(33,158,188,0.25)"
+default    = "rgba(200,200,200,0.25)"
+
+[colors.treemap]
+"Liquidités"  = "#8ecae6"
+"Livrets"     = "#219ebc"
+"Actions"     = "#fb8500"
+"Fonds euros" = "#ffb703"
+"Immobilier"  = "#023047"
+root          = "#023047"
+
+# Zones et remplissages de graphiques Plotly
+[colors.chart]
+target_fill          = "rgba(100,180,255,0.06)"   # zone cible radar (fond)
+target_line          = "rgba(100,180,255,0.30)"   # contour zone cible radar
+score_fill           = "rgba(255,183,3,0.15)"     # remplissage score pentagone (amber transparent)
+score_line           = "#ffb703"                  # ligne score pentagone — visible sur fond sombre
+tsb_danger           = "rgba(220,50,50,0.08)"     # zone TSB surmenage (< -15) [legacy]
+tsb_warning          = "rgba(255,165,0,0.08)"     # zone TSB fatigue (0 à -15) [legacy]
+tsb_ok               = "rgba(50,180,80,0.06)"     # zone TSB forme (≥ 0) [legacy]
+tsb_zero_line        = "rgba(255,255,255,0.12)"   # ligne zéro TSB sur fond sombre
+tsb_transition_fill  = "rgba(120,120,120,0.06)"   # zone TRANSITION (≥ 20)
+tsb_fresh_fill       = "rgba(0,190,140,0.08)"     # zone FRESH (5 à 20)
+tsb_grey_fill        = "rgba(100,100,100,0.04)"   # zone GREY ZONE (-10 à 5)
+tsb_optimal_fill     = "rgba(50,200,80,0.08)"     # zone OPTIMAL (-30 à -10)
+tsb_highrisk_fill    = "rgba(220,50,50,0.10)"     # zone HIGH RISK (< -30)
+table_border         = "rgba(33,158,188,0.12)"    # séparateur lignes tableau HTML
+section_border       = "rgba(33,158,188,0.15)"    # <hr> séparateur de sections
+
+# Temps d'écran — 5 couleurs pour les apps (stacked bar, no legend)
+[colors.screen_apps]
+app0 = "#fb8500"   # Tiger — app #1
+app1 = "#ffb703"   # Amber — app #2
+app2 = "#8ecae6"   # Sky Blue — app #3
+app3 = "#219ebc"   # Blue Green — app #4
+app4 = "#666666"   # Gray — app #5+
+vo2max_target        = "rgba(100,180,100,0.70)"   # ligne cible VO2max = 70
+
+# HTML standalone — thème clair (dashboard finance généré hors Streamlit)
+[colors.html]
+bg          = "#F6F5F3"
+card        = "#ffffff"
+text        = "#1A1A2E"
+text_muted  = "#9A9A9A"
+border      = "#EDEDEB"
+item_bg     = "#F9F8F7"
+total_bg    = "#1A1A2E"
+accent      = "#E07A00"
+btn_default = "#1A1A2E"
+btn_ok      = "#78C8B8"
+btn_error   = "#E88C9C"
+pct         = "#B0B0B0"

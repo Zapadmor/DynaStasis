@@ -1,0 +1,36 @@
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["archives"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes (unused imports, undefined names…)
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+]
+ignore = [
+    "E501",  # line too long — géré par le formateur
+    "B008",  # do not perform function calls in default arguments
+]
+
+[tool.ruff.lint.per-file-ignores]
+# sys.path.insert avant import est intentionnel dans ces modules
+"bots/*.py"                         = ["E402"]
+"scripts/*.py"                      = ["E402"]
+"src/app/ui_main.py"                = ["E402"]
+"src/collectors/finance_viz.py"     = ["E402"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.vulture]
+min_confidence = 80
+paths = ["src", "bots", "main.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

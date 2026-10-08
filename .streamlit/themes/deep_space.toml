@@ -1,0 +1,13 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Thème Deep Space (thème actuel — référence)
+# ─────────────────────────────────────────────────────────────────────────────
+
+[theme]
+primaryColor             = "#ffb703"   # Amber Flame
+backgroundColor          = "#023047"   # Deep Space Blue
+secondaryBackgroundColor = "#012535"   # variante sombre
+textColor                = "#8ecae6"   # Sky Blue Light
+font                     = "Satoshi"
+headingFont              = "Satoshi"
+baseFontWeight           = 300
+headingFontWeights       = [600, 600, 600, 500, 400, 400]

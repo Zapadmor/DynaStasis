@@ -1,0 +1,8 @@
+# Outils de développement (lint, hooks, tests).
+# Régénérer : pip-compile --strip-extras -o requirements-dev.txt requirements-dev.in
+-c requirements.txt
+pip-tools
+pre-commit
+pytest
+ruff
+vulture

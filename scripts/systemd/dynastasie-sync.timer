@@ -1,0 +1,15 @@
+[Unit]
+Description=DynaStasie — sync toutes les 6h (réveil depuis veille si nécessaire)
+
+[Timer]
+# Syncs à 07h, 13h, 19h, 01h — couvre une journée complète
+OnCalendar=*-*-* 01,07,13,19:00:00
+# Réveille le laptop depuis la veille (suspend S3) pour lancer le sync
+WakeSystem=yes
+# Si le laptop était éteint à l'heure prévue, lance au prochain démarrage
+Persistent=true
+# Délai aléatoire jusqu'à 2 min pour ne pas saturer le réseau au réveil
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

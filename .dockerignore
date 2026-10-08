@@ -1,0 +1,23 @@
+# Jamais dans l'image : données perso, secrets, documents privés
+.git/
+env/
+node_modules/
+__pycache__/
+**/__pycache__/
+*.pyc
+.ruff_cache/
+.pytest_cache/
+
+.env
+.env.*
+secrets.env
+tokens.json
+.streamlit/secrets.toml
+
+data/
+db/*.db
+db/*.db-*
+db/*.bak*
+docs/private/
+archives/
+*.log

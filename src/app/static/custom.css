@@ -1,0 +1,52 @@
+/*
+ * DynaStasie — surcharges typographiques complémentaires
+ *
+ * La police Satoshi et son poids sont déclarés dans .streamlit/config.toml
+ * via [[theme.fontFaces]], theme.font, theme.headingFont, theme.baseFontWeight.
+ * Ce fichier ne contient QUE ce qui n'est pas configurable nativement.
+ */
+
+/* Espacement des caractères — non configurable via config.toml */
+html,
+body,
+[class*="css"] {
+  letter-spacing: 0.03em;
+}
+
+/* Titres : petites majuscules + espacement marqué */
+h1,
+h2,
+h3 {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Onglets de navigation */
+button[data-baseweb="tab"] {
+  letter-spacing: 0.05em;
+}
+
+/* ── Suppression des conteneurs natifs ─────────────────── */
+[data-testid="stForm"],
+[data-testid="stExpander"],
+.stCheckbox,
+div[data-testid="stVerticalBlock"] > div {
+  border: none !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Inputs minimalistes — CSS variables héritées du thème Streamlit actif */
+.stTextInput > div > div > input,
+.stTextArea textarea,
+.stNumberInput input {
+  background-color: var(--secondary-background-color) !important;
+  border: 1px solid var(--primary-color) !important;
+  color: var(--text-color) !important;
+  border-radius: 4px !important;
+}
+
+/* Respiration des blocs horizontaux */
+[data-testid="stHorizontalBlock"] {
+  gap: 2rem !important;
+}

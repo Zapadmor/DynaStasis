@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Lint
+        run: ruff check src bots scripts main.py tests
+      - name: Format
+        run: ruff format --check src bots scripts main.py tests
+      - name: Dead code
+        run: vulture src bots main.py --min-confidence 80
+      - name: Tests
+        run: pytest -q
+      - name: Lockfiles à jour
+        run: |
+          pip-compile -q --strip-extras --no-header --annotation-style=line -o /tmp/req.txt requirements.in
+          diff <(grep -v '^#' requirements.txt) <(grep -v '^#' /tmp/req.txt) || echo "::warning::requirements.txt n'est plus synchronisé avec requirements.in"
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: lint-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

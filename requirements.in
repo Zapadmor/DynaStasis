@@ -1,0 +1,10 @@
+# Dépendances directes de l'application.
+# Régénérer le lockfile : pip-compile --strip-extras -o requirements.txt requirements.in
+pandas
+numpy>=1.24,<2
+requests
+pyyaml
+plotly
+openpyxl
+streamlit>=1.35
+sqlite_web

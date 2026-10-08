@@ -1,0 +1,21 @@
+services:
+  # ── Streamlit app — interface DynaStasie (port 8501) ──────────────────────
+  # Accès local : http://localhost:8501
+  streamlit:
+    build: .
+    container_name: dynastasie-streamlit
+    restart: always
+    user: "${DYNASTASIS_UID:-1000}:${DYNASTASIS_GID:-1000}"
+    ports:
+      - "8501:8501"
+    dns:
+      - ${DYNASTASIS_DNS:-8.8.8.8}
+    # Secrets : fichier hors dépôt (chmod 600), jamais monté dans l'image
+    env_file:
+      - ${DYNASTASIS_ENV_FILE:-${HOME}/.config/dynastasie/secrets.env}
+    volumes:
+      - ./data:/app/data
+      - ./db:/app/db
+      - ./.streamlit/config.toml:/app/.streamlit/config.toml
+      - ./.streamlit/themes:/app/.streamlit/themes
+    command: ["streamlit", "run", "src/app/ui_main.py"]
