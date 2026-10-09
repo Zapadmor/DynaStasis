@@ -37,6 +37,7 @@ CRITERES = [
 
 DEFAULTS: dict[str, Any] = {
     "general": {"timezone": "Europe/Paris"},
+    "interface": {"widget_url": ""},
     "piliers": {"actifs": list(PILIERS)},
     "engagement": {
         "actif": True,
@@ -192,6 +193,11 @@ def mode_label(code: str | None) -> str:
     code = code or default_mode()
     mode = modes().get(code)
     return mode.label if mode else code
+
+
+def widget_url() -> str:
+    """URL d'un widget (iframe) affiché en bas de la barre latérale ; vide = aucun."""
+    return str(load()["interface"]["widget_url"]).strip()
 
 
 def pilier_actif(pilier: str) -> bool:

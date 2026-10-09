@@ -24,12 +24,14 @@ def _app(page):
 def test_page_se_rend_sur_base_vide(db, page):
     at = AppTest.from_function(_app, args=(page,), default_timeout=60).run()
     assert not at.exception
+    assert not at.error, [e.value for e in at.error]
 
 
 @pytest.mark.parametrize("page", ["dashboard", "forge", "logos", "vigueur", "resonance", "systeme"])
 def test_page_se_rend_sur_base_de_demo(demo_db, page):
     at = AppTest.from_function(_app, args=(page,), default_timeout=60).run()
     assert not at.exception
+    assert not at.error, [e.value for e in at.error]
 
 
 def test_historique_journal_avec_semaine_gelee(db, caplog):

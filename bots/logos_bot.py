@@ -113,7 +113,11 @@ def main() -> int:
     if args.manual:
         _run_manual()
     else:
-        run(host=args.host, top_n=args.top_n)
+        try:
+            run(host=args.host, top_n=args.top_n)
+        except RuntimeError as exc:
+            print(f"Erreur : {exc}\nSans téléphone ni ADB : python main.py logos --manual")
+            return 1
     return 0
 
 

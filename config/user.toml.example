@@ -9,6 +9,11 @@
 [general]
 timezone = "Europe/Paris"      # nom IANA : "America/Montreal", "Asia/Tokyo", "UTC"…
 
+[interface]
+# Widget externe (iframe) en bas de la barre latérale, par ex. un lecteur audio. Vide = aucun :
+# l'application n'appelle alors aucun service externe depuis le navigateur.
+widget_url = ""
+
 # Piliers visibles dans la navigation et le radar : FORGE, LOGOS, VIGUEUR, RESONNANCE, SYSTEME.
 [piliers]
 actifs = ["FORGE", "LOGOS", "VIGUEUR", "RESONNANCE", "SYSTEME"]

@@ -6,12 +6,13 @@ La police Satoshi est définie dans static/custom.css (servi via config.toml sta
 
 from __future__ import annotations
 
+import html
 from pathlib import Path
 
 import streamlit as st
 
 from src.core.tz import today_local
-from src.core.user_config import mode_label, pilier_actif
+from src.core.user_config import mode_label, pilier_actif, widget_url
 from src.styles import (
     CHART_COLORS,
     GRAY,
@@ -41,15 +42,15 @@ __all__ = [
     "render_sidebar",
 ]
 
-# ── Widget Deezer ─────────────────────────────────────────────────────────────
-_DEEZER_WIDGET = """
-<iframe title="deezer-widget"
-  src="https://widget.deezer.com/widget/light/show/2101202"
-  width="100%" height="190" frameborder="0"
-  allowtransparency="true"
-  allow="encrypted-media; clipboard-write">
-</iframe>
-"""
+
+# ── Widget externe facultatif ─────────────────────────────────────────────────
+def _widget_html(url: str) -> str:
+    return (
+        f'<iframe title="widget" src="{html.escape(url, quote=True)}" width="100%" height="190" '
+        'frameborder="0" allowtransparency="true" allow="encrypted-media; clipboard-write">'
+        "</iframe>"
+    )
+
 
 # ── Injection CSS / Police ────────────────────────────────────────────────────
 
@@ -215,6 +216,6 @@ def render_sidebar(cw: dict | None) -> None:
         st.markdown("---")
         st.caption(f"Aujourd'hui : {today_local().isoformat()}")
 
-        st.markdown("---")
-        st.markdown("**Écoute**")
-        st.markdown(_DEEZER_WIDGET, unsafe_allow_html=True)
+        if widget_url():
+            st.markdown("---")
+            st.markdown(_widget_html(widget_url()), unsafe_allow_html=True)
