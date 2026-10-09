@@ -5,7 +5,7 @@ from datetime import timedelta
 import requests
 
 from src.config import get_secret
-from src.core.tz import today_paris
+from src.core.tz import today_local
 
 INTERVALS_API_BASE = "https://intervals.icu/api/v1"
 
@@ -63,7 +63,7 @@ class IntervalsClient:
         newest: str | None = None,
         lookback_days: int = 7,
     ) -> list[dict]:
-        today = today_paris()
+        today = today_local()
         params = {
             "oldest": oldest or (today - timedelta(days=lookback_days)).isoformat(),
             "newest": newest or today.isoformat(),
@@ -143,7 +143,7 @@ class IntervalsClient:
         lookback_days: int = 180,
     ) -> list[dict]:
         """Return activities list with distance, moving_time and icu_training_load."""
-        today = today_paris()
+        today = today_local()
         params = {
             "oldest": oldest or (today - timedelta(days=lookback_days)).isoformat(),
             "newest": newest or today.isoformat(),

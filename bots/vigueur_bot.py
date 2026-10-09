@@ -11,7 +11,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from src.collectors.intervals_client import IntervalsAPIError, IntervalsClient
 from src.collectors.strava_client import StravaAPIError, StravaClient
-from src.core.tz import today_paris
+from src.core.tz import today_local
 from src.database.connection import db_session
 
 _UPSERT_WELLNESS = """
@@ -114,7 +114,7 @@ def _cascade_current_weeks() -> None:
     """
     from src.core.system_engine import get_or_create_week_id, trigger_cascade_week
 
-    today = today_paris()
+    today = today_local()
     for offset in (0, 7):
         date_str = (today - timedelta(days=offset)).isoformat()
         try:
@@ -134,7 +134,7 @@ def _save_checkpoint(source: str) -> None:
                    ON CONFLICT(source) DO UPDATE SET
                        last_date  = excluded.last_date,
                        updated_at = excluded.updated_at""",
-                (source, today_paris().isoformat()),
+                (source, today_local().isoformat()),
             )
     except Exception as exc:
         print(f"[WARN] Checkpoint {source} non sauvegardé : {exc}")

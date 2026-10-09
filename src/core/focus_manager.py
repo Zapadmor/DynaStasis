@@ -1,22 +1,21 @@
 from __future__ import annotations
 
 from datetime import datetime
-from zoneinfo import ZoneInfo
 
+from src.core import user_config
 from src.core.system_engine import get_or_create_week_id, trigger_cascade_week
+from src.core.tz import tz
 from src.database.connection import db_session
-
-_TZ = ZoneInfo("Europe/Paris")
 
 # Piliers "parents" — utilisés pour la répartition agrégée (sidebar, SYSTÈME de l'audit).
 PILIERS = ["FORGE", "LOGOS", "VIGUEUR", "RESONNANCE", "SYSTEME"]
 
-# Tags flaguables sur une session focus. FORGE est éclaté en sous-tags car le pilier recouvre
-# plusieurs objectifs bien distincts : engagement et hard skills sont permanents,
-# Le pilier entreprise n'est pertinent qu'en mode Entreprise (le travail académique est déjà couvert par
-# le tag LOGOS, pas besoin d'un sous-tag FORGE dédié). Les autres piliers restent des tags simples.
+# Tags flaguables sur une session focus. FORGE est éclaté en sous-tags : le critère « engagement »
+# (libellé configurable, désactivable) et les hard skills sont permanents ; le sous-tag « pro »
+# n'est pertinent que dans un mode marqué `tag_pro` (config/user.toml). Le travail académique se
+# tague LOGOS. Les autres piliers restent des tags simples.
 TAGS: dict[str, tuple[str, str]] = {
-    "FORGE_ENGAGEMENT": ("FORGE", "Forge — Engagement"),
+    "FORGE_ENGAGEMENT": ("FORGE", f"Forge — {user_config.engagement_libelle()}"),
     "FORGE_HARDSKILLS": ("FORGE", "Forge — Hard Skills"),
     "FORGE_PRO": ("FORGE", "Forge — Entreprise"),
     "LOGOS": ("LOGOS", "Logos — Académique"),
@@ -27,16 +26,29 @@ TAGS: dict[str, tuple[str, str]] = {
 
 
 def forge_tag_for_mode(mode_actif: str | None) -> str | None:
-    """Sous-tag FORGE additionnel pertinent selon le mode_actif de la semaine courante.
-    None en mode ecole : le travail académique se tague LOGOS, pas FORGE."""
-    return "FORGE_PRO" if mode_actif == "Entreprise" else None
+    """Sous-tag FORGE additionnel pertinent selon le mode de la semaine courante :
+    FORGE_PRO si le mode est configuré avec `tag_pro`, sinon None."""
+    mode = user_config.modes().get(mode_actif or "")
+    return "FORGE_PRO" if mode and mode.tag_pro else None
+
+
+def tags_proposes(mode_actif: str | None) -> list[str]:
+    """Tags offerts à la sélection : piliers actifs, FORGE_* selon le mode et l'engagement."""
+    forge_dispo = {"FORGE_HARDSKILLS", forge_tag_for_mode(mode_actif)} - {None}
+    if user_config.engagement_actif():
+        forge_dispo.add("FORGE_ENGAGEMENT")
+    return [
+        t
+        for t, (pilier, _) in TAGS.items()
+        if user_config.pilier_actif(pilier) and (not t.startswith("FORGE_") or t in forge_dispo)
+    ]
 
 
 def start_focus_session(
     channel: str = "local", piliers: list[str] | None = None
 ) -> tuple[bool, str]:
     """Démarre une session de deep work si aucune n'est déjà active. Règle R6."""
-    now = datetime.now(_TZ)
+    now = datetime.now(tz())
     date_session = now.strftime("%Y-%m-%d")
     heure_debut = now.strftime("%H:%M")
     week_id = get_or_create_week_id(date_session)
@@ -63,7 +75,7 @@ def start_focus_session(
 
 def stop_focus_session() -> tuple[bool, str]:
     """Ferme la session active, calcule la durée et déclenche la cascade."""
-    now = datetime.now(_TZ)
+    now = datetime.now(tz())
     heure_fin = now.strftime("%H:%M")
 
     with db_session() as conn:

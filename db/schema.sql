@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS semaines_audit (
     sessions_jeune          INTEGER,
     score_semaine           REAL,   -- score semaine 0-100 (100=parfait)
     hrv_delta_s1            REAL,   -- delta HRV médiane vs semaine précédente
-    focus_engagement_min     REAL,   -- minutes focus taguées FORGE_ENGAGEMENT (rollup cascade)
+    focus_engagement_min     REAL,   -- minutes focus taguées FORGE_ENGAGEMENT (rollup cascade) ; colonne renommée par la migration 004
     focus_projets_fond_min  REAL,   -- minutes focus FORGE_HARDSKILLS+FORGE_PRO+LOGOS (rollup cascade)
     alertes_json            TEXT,
 
@@ -121,10 +121,9 @@ CREATE INDEX IF NOT EXISTS idx_hablog_semaine ON habitude_logs(semaine_id);
 
 DROP VIEW IF EXISTS v_progression_quotidienne;
 CREATE VIEW v_progression_quotidienne AS
--- Journée parfaite v2 (6 critères, 2026-08-31, cf. .github/PLAN_AUDIT_HEBDO_V2.md §9) :
---   sport >= 60 min (ou repos planifié) · sommeil >= 450 min · pas >= 10000
---   focus deep-work mode-aware · focus stratégique (Forge/Logos) >= 30 min
---   écran distraction < 30 min OU en baisse vs même jour S-7
+-- Journée parfaite (6 critères) : sport (ou repos planifié) · sommeil · pas · focus deep-work
+-- selon le mode · focus stratégique (Forge/Logos) · écran distraction sous le seuil OU en baisse
+-- vs même jour S-7. Seuils : v_score_params (config/user.toml) ; seuils de focus : modes_config.
 WITH screen_day AS (
     SELECT
         substr(session_start, 1, 10)        AS date,
@@ -159,27 +158,28 @@ scores AS (
         COALESCE(fs.focus_strat_min, 0)  AS focus_strat_min,
         COALESCE(sd.screen_min,      0)  AS screen_min,
         CASE
-            WHEN COALESCE(ve.moving_time_min, 0) >= 60 THEN 1
+            WHEN COALESCE(ve.moving_time_min, 0) >= p.jour_sport_min THEN 1
             WHEN EXISTS(SELECT 1 FROM plan_entrainement pe
                         WHERE pe.date_jour = hl.date_log AND pe.is_repos = 1) THEN 1
             ELSE 0
         END AS ok_sport,
-        CASE WHEN COALESCE(ve.sleep_min, 0) >= 450  THEN 1 ELSE 0 END AS ok_sommeil,
-        CASE WHEN COALESCE(ve.steps,     0) >= 10000 THEN 1 ELSE 0 END AS ok_pas,
+        CASE WHEN COALESCE(ve.sleep_min, 0) >= p.jour_sommeil_min THEN 1 ELSE 0 END AS ok_sommeil,
+        CASE WHEN COALESCE(ve.steps,     0) >= p.jour_pas          THEN 1 ELSE 0 END AS ok_pas,
         CASE
-            WHEN sa2.mode_actif = 'Entreprise' THEN CASE WHEN COALESCE(f.focus_min, 0) >= 150 THEN 1 ELSE 0 END
-            WHEN sa2.mode_actif = 'ecole'        THEN CASE WHEN COALESCE(f.focus_min, 0) >= 240 THEN 1 ELSE 0 END
-            ELSE                                     CASE WHEN COALESCE(f.focus_min, 0) >= 90  THEN 1 ELSE 0 END
+            WHEN mc.code IS NOT NULL THEN CASE WHEN COALESCE(f.focus_min, 0) >= mc.focus_jour_min THEN 1 ELSE 0 END
+            ELSE                          CASE WHEN COALESCE(f.focus_min, 0) >= p.jour_focus_defaut_min THEN 1 ELSE 0 END
         END AS ok_focus,
-        CASE WHEN COALESCE(fs.focus_strat_min, 0) >= 30 THEN 1 ELSE 0 END AS ok_focus_strat,
+        CASE WHEN COALESCE(fs.focus_strat_min, 0) >= p.jour_focus_strat_min THEN 1 ELSE 0 END AS ok_focus_strat,
         CASE
-            WHEN COALESCE(sd.screen_min, 0) < 30 THEN 1
+            WHEN COALESCE(sd.screen_min, 0) < p.jour_ecran_max_min THEN 1
             WHEN sd_prev.screen_min IS NOT NULL
              AND COALESCE(sd.screen_min, 0) < sd_prev.screen_min THEN 1
             ELSE 0
         END AS ok_ecran
     FROM habitude_logs hl
+    CROSS JOIN v_score_params p
     LEFT JOIN semaines_audit  sa2     ON sa2.id        = hl.semaine_id
+    LEFT JOIN modes_config    mc      ON mc.code       = sa2.mode_actif
     LEFT JOIN vigueur_entries ve      ON ve.date_entry = hl.date_log
     LEFT JOIN foc f                   ON f.d           = hl.date_log
     LEFT JOIN foc_strat fs            ON fs.d          = hl.date_log
@@ -405,7 +405,7 @@ CREATE TABLE IF NOT EXISTS cours_ecole (
     UNIQUE (semestre, code)
 );
 
--- GPA officiels de l'ecole (relevé manuel, saisi/édité depuis la page LOGOS) — ligne unique id=1
+-- GPA officiels (relevé manuel, saisi/édité depuis la page LOGOS) — ligne unique id=1
 CREATE TABLE IF NOT EXISTS logos_gpa (
     id                INTEGER PRIMARY KEY CHECK (id = 1),
     tc_gpa            REAL,
@@ -437,7 +437,7 @@ CREATE TABLE IF NOT EXISTS audit_narrative (
     alerte_rouge         INTEGER NOT NULL DEFAULT 0,  -- 0=NON, 1=OUI
     correction_immediate TEXT,
     -- III — PENTAGONE (réflexions par pilier) — legacy narratif, plus alimenté par le form v2
-    pentagone_vigueur    TEXT,   -- Force / Endurance / FMIR / Santé
+    pentagone_vigueur    TEXT,   -- Force / Endurance / Santé
     pentagone_logos      TEXT,   -- GPA / Veille / Huberman
     pentagone_forge      TEXT,   -- Orchestration / projets / entreprise
     pentagone_resonance  TEXT,   -- Service invisible / Relations / Mémoire
@@ -447,15 +447,15 @@ CREATE TABLE IF NOT EXISTS audit_narrative (
     ombre_consommateur   TEXT,   -- Écran créatif ou passif ?
     ombre_menteur        TEXT,   -- Intégrité du journal ?
     -- V — ALIGNEMENT — legacy, remplacé par alignement_prerequis/alignement_stage
-    alignement_fmir      TEXT,   -- Statut dossier CIRFA / FMIR
+    alignement_fmir      TEXT,   -- legacy
     -- VI — PLAN DE BATAILLE
     plan_priorite_unique TEXT,   -- The One Thing
     plan_ajustement_algo TEXT,   -- legacy, remplacé par plan_drill_engagement
 
-    -- FORGE — Engagement (toujours affiché, indépendant du mode_actif)
+    -- FORGE — Engagement (critère configurable ; noms renommés par la migration 004)
     forge_jours_engagement_mois   INTEGER,  -- jours d'engagement ce mois-ci
-    jours_engagement_semaine          INTEGER DEFAULT 0,  -- jours d'engagement CETTE semaine (critère #9 du score)
-    forge_drill_engagement      TEXT,     -- Pratique de la semaine — fait ou non
+    jours_engagement_semaine          INTEGER DEFAULT 0,  -- jours d'engagement cette semaine (critère du score)
+    forge_drill_engagement      TEXT,     -- pratique de la semaine — faite ou non
 
     -- FORGE — Hard Skills & Problématiques Critiques (toujours affiché)
     forge_hardskills_sujet     TEXT,     -- Sujet technique traité cette semaine
@@ -472,7 +472,7 @@ CREATE TABLE IF NOT EXISTS audit_narrative (
     logos_projet_tx        TEXT,
     logos_article_analyse  TEXT,
 
-    -- V. ALIGNEMENT OPÉRATIONNEL — nouveaux champs (remplacent alignement_fmir)
+    -- V. ALIGNEMENT OPÉRATIONNEL — nouveaux champs (remplacent alignement_fmir, legacy)
     alignement_prerequis TEXT,
     alignement_stage            TEXT,
     alignement_friction_semaine     TEXT,
@@ -509,8 +509,9 @@ week_vigueur AS (
         COALESCE(SUM(ve.moving_time_min), 0)                                    AS entrainement_min,
         COALESCE(SUM(ve.steps),           0)                                    AS pas_total,
         AVG(ve.sleep_min)                                                       AS sleep_moy,
-        COALESCE(SUM(CASE WHEN ve.moving_time_min >= 30 THEN 1 ELSE 0 END), 0) AS seances
+        COALESCE(SUM(CASE WHEN ve.moving_time_min >= p.sem_seance_duree_min THEN 1 ELSE 0 END), 0) AS seances
     FROM semaines_audit sa
+    CROSS JOIN v_score_params p
     LEFT JOIN vigueur_entries ve
         ON ve.date_entry >= sa.week_start
         AND ve.date_entry < date(sa.week_start, '+7 days')
@@ -590,94 +591,86 @@ prev_ecran AS (
         AND substr(ss.session_start, 1, 10) < date(pvw.prev_week_start, '+7 days')
         AND ss.package IN (SELECT package FROM apps_distrayantes)
     GROUP BY sa.id
+),
+base AS (
+    SELECT
+        sa.id,
+        sa.week_start,
+        -- métriques brutes (utiles pour l'affichage)
+        COALESCE(wv.seances,               0) AS seances,
+        COALESCE(sa.deep_focus_min,        0) AS deep_focus_min,
+        COALESCE(wv.entrainement_min,      0) AS entrainement_min,
+        COALESCE(wv.pas_total,             0) AS pas_total,
+        COALESCE(we.screen_distraction_min,0) AS screen_distraction_min,
+        pe.screen_distraction_min_prev,
+        sa.ctl_delta,
+        sa.tsb,
+        sa.mode_actif,
+        sa.hrv_delta_s1,
+        COALESCE(sa.focus_engagement_min,   0) AS focus_engagement_min,
+        COALESCE(sa.focus_projets_fond_min, 0) AS focus_projets_fond_min,
+        COALESCE(an.jours_engagement_semaine, 0) AS jours_engagement_semaine,
+        wv.sleep_moy,
+        whr.hrv_moy,
+        phr.hrv_moy_prev,
+        ROUND(whr.hrv_moy - phr.hrv_moy_prev, 1) AS hrv_delta,
+        sa.social,
+        EXISTS(SELECT 1 FROM plan_entrainement pe2
+               WHERE pe2.date_jour >= sa.week_start
+                 AND pe2.date_jour < date(sa.week_start, '+7 days')
+                 AND pe2.type_semaine = 'decharge')            AS is_deload_week,
+        EXISTS(SELECT 1 FROM audit_narrative WHERE semaine_id = sa.id) AS has_narrative
+    FROM semaines_audit sa
+    LEFT JOIN week_vigueur     wv  ON wv.semaine_id  = sa.id
+    LEFT JOIN week_hrv         whr ON whr.semaine_id = sa.id
+    LEFT JOIN prev_hrv         phr ON phr.semaine_id = sa.id
+    LEFT JOIN week_ecran       we  ON we.semaine_id  = sa.id
+    LEFT JOIN prev_ecran       pe  ON pe.semaine_id  = sa.id
+    LEFT JOIN audit_narrative  an  ON an.semaine_id  = sa.id
+),
+-- seuils binaires (1 = critère validé) ; seuils : v_score_params, focus par mode : modes_config
+crit AS (
+    SELECT
+        b.*,
+        CASE WHEN b.entrainement_min >= p.sem_entrainement_min                  THEN 1 ELSE 0 END AS ok_entrainement,
+        CASE WHEN b.seances          >= p.sem_seances                           THEN 1 ELSE 0 END AS ok_seances,
+        CASE WHEN b.pas_total        >= p.sem_pas                               THEN 1 ELSE 0 END AS ok_pas,
+        CASE WHEN COALESCE(b.sleep_moy, 0) >= p.sem_sommeil_min                 THEN 1 ELSE 0 END AS ok_sommeil,
+        CASE WHEN b.is_deload_week
+             THEN CASE WHEN COALESCE(b.tsb, -999) >= p.sem_tsb_decharge_min OR COALESCE(b.hrv_delta_s1, -999) >= 0 THEN 1 ELSE 0 END
+             ELSE CASE WHEN COALESCE(b.tsb, -999) >= p.sem_tsb_min THEN 1 ELSE 0 END
+        END                                                                                        AS ok_charge_fraicheur,
+        CASE WHEN b.screen_distraction_min <= p.sem_ecran_max_min
+                  OR b.screen_distraction_min < COALESCE(b.screen_distraction_min_prev, 0)
+             THEN 1 ELSE 0 END                                                                     AS ok_ecran,
+        CASE
+            WHEN mc.code IS NOT NULL THEN CASE WHEN b.deep_focus_min >= mc.focus_semaine_min THEN 1 ELSE 0 END
+            ELSE                          CASE WHEN b.deep_focus_min >  p.sem_focus_defaut_min THEN 1 ELSE 0 END
+        END                                                                                        AS ok_deep_focus,
+        CASE WHEN b.focus_projets_fond_min >= p.sem_projets_fond_min                THEN 1 ELSE 0 END AS ok_projets_fond,
+        CASE WHEN b.focus_engagement_min >= p.sem_engagement_min
+                  OR b.jours_engagement_semaine >= p.sem_engagement_jours           THEN 1 ELSE 0 END AS ok_engagement,
+        CASE WHEN b.social = 'Connecté/Ressourcé' AND b.has_narrative               THEN 1 ELSE 0 END AS ok_cloture
+    FROM base b
+    CROSS JOIN v_score_params p
+    LEFT JOIN modes_config mc ON mc.code = b.mode_actif
 )
+-- score final 0-100 : moyenne pondérée des critères (poids 0 = critère désactivé)
 SELECT
-    sa.id,
-    sa.week_start,
-    -- métriques brutes (utiles pour l'affichage)
-    COALESCE(wv.seances,               0) AS seances,
-    COALESCE(sa.deep_focus_min,        0) AS deep_focus_min,
-    COALESCE(wv.entrainement_min,      0) AS entrainement_min,
-    COALESCE(wv.pas_total,             0) AS pas_total,
-    COALESCE(we.screen_distraction_min,0) AS screen_distraction_min,
-    pe.screen_distraction_min_prev,
-    sa.ctl_delta,
-    sa.tsb,
-    sa.mode_actif,
-    sa.hrv_delta_s1,
-    COALESCE(sa.focus_engagement_min,    0) AS focus_engagement_min,
-    COALESCE(sa.focus_projets_fond_min, 0) AS focus_projets_fond_min,
-    COALESCE(an.jours_engagement_semaine,      0) AS jours_engagement_semaine,
-    wv.sleep_moy,
-    whr.hrv_moy,
-    phr.hrv_moy_prev,
-    ROUND(whr.hrv_moy - phr.hrv_moy_prev, 1) AS hrv_delta,
-    sa.social,
-    EXISTS(SELECT 1 FROM plan_entrainement pe2
-           WHERE pe2.date_jour >= sa.week_start
-             AND pe2.date_jour < date(sa.week_start, '+7 days')
-             AND pe2.type_semaine = 'decharge')            AS is_deload_week,
-    -- seuils binaires (1 = critère validé)
-    CASE WHEN COALESCE(wv.entrainement_min, 0) >= 420                                   THEN 1 ELSE 0 END AS ok_entrainement,
-    CASE WHEN COALESCE(wv.seances,  0) >= 6                                             THEN 1 ELSE 0 END AS ok_seances,
-    CASE WHEN COALESCE(wv.pas_total,        0) >= 70000                                 THEN 1 ELSE 0 END AS ok_pas,
-    CASE WHEN COALESCE(wv.sleep_moy, 0) >= 450                                          THEN 1 ELSE 0 END AS ok_sommeil,
-    CASE WHEN EXISTS(SELECT 1 FROM plan_entrainement pe2
-                      WHERE pe2.date_jour >= sa.week_start
-                        AND pe2.date_jour < date(sa.week_start, '+7 days')
-                        AND pe2.type_semaine = 'decharge')
-         THEN CASE WHEN COALESCE(sa.tsb, -999) >= -5 OR COALESCE(sa.hrv_delta_s1, -999) >= 0 THEN 1 ELSE 0 END
-         ELSE CASE WHEN COALESCE(sa.tsb, -999) >= -25 THEN 1 ELSE 0 END
-    END                                                                                                     AS ok_charge_fraicheur,
-    CASE WHEN COALESCE(we.screen_distraction_min, 0) <= 210
-              OR COALESCE(we.screen_distraction_min, 0) < COALESCE(pe.screen_distraction_min_prev, 0)
-         THEN 1 ELSE 0 END AS ok_ecran,
-    CASE
-        WHEN sa.mode_actif = 'Entreprise' THEN CASE WHEN COALESCE(sa.deep_focus_min, 0) >= 900  THEN 1 ELSE 0 END
-        WHEN sa.mode_actif = 'ecole'        THEN CASE WHEN COALESCE(sa.deep_focus_min, 0) >= 1500 THEN 1 ELSE 0 END
-        ELSE                                    CASE WHEN COALESCE(sa.deep_focus_min, 0) > 630   THEN 1 ELSE 0 END
-    END                                                                                             AS ok_deep_focus,
-    CASE WHEN COALESCE(sa.focus_projets_fond_min, 0) >= 120                             THEN 1 ELSE 0 END AS ok_projets_fond,
-    CASE WHEN COALESCE(sa.focus_engagement_min, 0) >= 45 OR COALESCE(an.jours_engagement_semaine, 0) >= 1
-         THEN 1 ELSE 0 END AS ok_engagement,
-    CASE WHEN sa.social = 'Connecté/Ressourcé'
-              AND EXISTS(SELECT 1 FROM audit_narrative WHERE semaine_id = sa.id)
-         THEN 1 ELSE 0 END AS ok_cloture,
-    -- score final 0-100 (10 critères équipondérés, 10 points chacun)
+    c.*,
     ROUND(100.0 * (
-        (CASE WHEN COALESCE(wv.entrainement_min, 0) >= 420                              THEN 1 ELSE 0 END) +
-        (CASE WHEN COALESCE(wv.seances,  0) >= 6                                        THEN 1 ELSE 0 END) +
-        (CASE WHEN COALESCE(wv.pas_total,        0) >= 70000                            THEN 1 ELSE 0 END) +
-        (CASE WHEN COALESCE(wv.sleep_moy, 0) >= 450                                     THEN 1 ELSE 0 END) +
-        (CASE WHEN EXISTS(SELECT 1 FROM plan_entrainement pe2
-                           WHERE pe2.date_jour >= sa.week_start
-                             AND pe2.date_jour < date(sa.week_start, '+7 days')
-                             AND pe2.type_semaine = 'decharge')
-              THEN CASE WHEN COALESCE(sa.tsb, -999) >= -5 OR COALESCE(sa.hrv_delta_s1, -999) >= 0 THEN 1 ELSE 0 END
-              ELSE CASE WHEN COALESCE(sa.tsb, -999) >= -25 THEN 1 ELSE 0 END
-         END) +
-        (CASE WHEN COALESCE(we.screen_distraction_min, 0) <= 210
-                   OR COALESCE(we.screen_distraction_min, 0) < COALESCE(pe.screen_distraction_min_prev, 0)
-              THEN 1 ELSE 0 END) +
-        (CASE
-            WHEN sa.mode_actif = 'Entreprise' THEN CASE WHEN COALESCE(sa.deep_focus_min, 0) >= 900  THEN 1 ELSE 0 END
-            WHEN sa.mode_actif = 'ecole'        THEN CASE WHEN COALESCE(sa.deep_focus_min, 0) >= 1500 THEN 1 ELSE 0 END
-            ELSE                                    CASE WHEN COALESCE(sa.deep_focus_min, 0) > 630   THEN 1 ELSE 0 END
-         END) +
-        (CASE WHEN COALESCE(sa.focus_projets_fond_min, 0) >= 120                        THEN 1 ELSE 0 END) +
-        (CASE WHEN COALESCE(sa.focus_engagement_min, 0) >= 45 OR COALESCE(an.jours_engagement_semaine, 0) >= 1
-              THEN 1 ELSE 0 END) +
-        (CASE WHEN sa.social = 'Connecté/Ressourcé'
-                   AND EXISTS(SELECT 1 FROM audit_narrative WHERE semaine_id = sa.id)
-              THEN 1 ELSE 0 END)
-    ) / 10.0, 1) AS score_semaine
-FROM semaines_audit sa
-LEFT JOIN week_vigueur     wv  ON wv.semaine_id  = sa.id
-LEFT JOIN week_hrv         whr ON whr.semaine_id = sa.id
-LEFT JOIN prev_hrv         phr ON phr.semaine_id = sa.id
-LEFT JOIN week_ecran       we  ON we.semaine_id  = sa.id
-LEFT JOIN prev_ecran       pe  ON pe.semaine_id  = sa.id
-LEFT JOIN audit_narrative  an  ON an.semaine_id  = sa.id;
+        c.ok_entrainement * p.poids_entrainement + c.ok_seances * p.poids_seances
+        + c.ok_pas * p.poids_pas + c.ok_sommeil * p.poids_sommeil
+        + c.ok_charge_fraicheur * p.poids_charge_fraicheur + c.ok_ecran * p.poids_ecran
+        + c.ok_deep_focus * p.poids_deep_focus + c.ok_projets_fond * p.poids_projets_fond
+        + c.ok_engagement * p.poids_engagement + c.ok_cloture * p.poids_cloture
+    ) / NULLIF(
+        p.poids_entrainement + p.poids_seances + p.poids_pas + p.poids_sommeil
+        + p.poids_charge_fraicheur + p.poids_ecran + p.poids_deep_focus + p.poids_projets_fond
+        + p.poids_engagement + p.poids_cloture, 0
+    ), 1) AS score_semaine
+FROM crit c
+CROSS JOIN v_score_params p;
 
 DROP VIEW IF EXISTS v_vigueur_hebdo;
 CREATE VIEW v_vigueur_hebdo AS
@@ -996,3 +989,55 @@ CREATE TABLE IF NOT EXISTS projet_taches (
 CREATE INDEX IF NOT EXISTS idx_projets_statut ON projets(statut);
 CREATE INDEX IF NOT EXISTS idx_projet_phases_projet ON projet_phases(projet_id, ordre);
 CREATE INDEX IF NOT EXISTS idx_projet_taches_phase ON projet_taches(phase_id, fait);
+
+-- ─────────────────────────────────────────────────────────────────
+-- CONFIGURATION DU SCORE — recopiée depuis config/user.toml à chaque init_db()
+-- ─────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS score_config (
+    cle    TEXT PRIMARY KEY,
+    valeur REAL NOT NULL
+);
+
+-- Modes (séquences école / entreprise…) : libellé et seuils de focus par mode.
+CREATE TABLE IF NOT EXISTS modes_config (
+    code              TEXT PRIMARY KEY,
+    libelle           TEXT NOT NULL,
+    focus_jour_min    REAL NOT NULL,
+    focus_semaine_min REAL NOT NULL,
+    tag_pro           INTEGER NOT NULL DEFAULT 0,
+    ordre             INTEGER NOT NULL DEFAULT 0
+);
+
+-- Une seule ligne : un paramètre par colonne (lue par v_score_semaine / v_progression_quotidienne).
+DROP VIEW IF EXISTS v_score_params;
+CREATE VIEW v_score_params AS
+SELECT
+    MAX(CASE WHEN cle = 'jour_sport_min' THEN valeur END) AS jour_sport_min,
+    MAX(CASE WHEN cle = 'jour_sommeil_min' THEN valeur END) AS jour_sommeil_min,
+    MAX(CASE WHEN cle = 'jour_pas' THEN valeur END) AS jour_pas,
+    MAX(CASE WHEN cle = 'jour_focus_strat_min' THEN valeur END) AS jour_focus_strat_min,
+    MAX(CASE WHEN cle = 'jour_ecran_max_min' THEN valeur END) AS jour_ecran_max_min,
+    MAX(CASE WHEN cle = 'jour_focus_defaut_min' THEN valeur END) AS jour_focus_defaut_min,
+    MAX(CASE WHEN cle = 'sem_seance_duree_min' THEN valeur END) AS sem_seance_duree_min,
+    MAX(CASE WHEN cle = 'sem_entrainement_min' THEN valeur END) AS sem_entrainement_min,
+    MAX(CASE WHEN cle = 'sem_seances' THEN valeur END) AS sem_seances,
+    MAX(CASE WHEN cle = 'sem_pas' THEN valeur END) AS sem_pas,
+    MAX(CASE WHEN cle = 'sem_sommeil_min' THEN valeur END) AS sem_sommeil_min,
+    MAX(CASE WHEN cle = 'sem_tsb_min' THEN valeur END) AS sem_tsb_min,
+    MAX(CASE WHEN cle = 'sem_tsb_decharge_min' THEN valeur END) AS sem_tsb_decharge_min,
+    MAX(CASE WHEN cle = 'sem_ecran_max_min' THEN valeur END) AS sem_ecran_max_min,
+    MAX(CASE WHEN cle = 'sem_projets_fond_min' THEN valeur END) AS sem_projets_fond_min,
+    MAX(CASE WHEN cle = 'sem_engagement_min' THEN valeur END) AS sem_engagement_min,
+    MAX(CASE WHEN cle = 'sem_engagement_jours' THEN valeur END) AS sem_engagement_jours,
+    MAX(CASE WHEN cle = 'sem_focus_defaut_min' THEN valeur END) AS sem_focus_defaut_min,
+    MAX(CASE WHEN cle = 'poids_entrainement' THEN valeur END) AS poids_entrainement,
+    MAX(CASE WHEN cle = 'poids_seances' THEN valeur END) AS poids_seances,
+    MAX(CASE WHEN cle = 'poids_pas' THEN valeur END) AS poids_pas,
+    MAX(CASE WHEN cle = 'poids_sommeil' THEN valeur END) AS poids_sommeil,
+    MAX(CASE WHEN cle = 'poids_charge_fraicheur' THEN valeur END) AS poids_charge_fraicheur,
+    MAX(CASE WHEN cle = 'poids_ecran' THEN valeur END) AS poids_ecran,
+    MAX(CASE WHEN cle = 'poids_deep_focus' THEN valeur END) AS poids_deep_focus,
+    MAX(CASE WHEN cle = 'poids_projets_fond' THEN valeur END) AS poids_projets_fond,
+    MAX(CASE WHEN cle = 'poids_engagement' THEN valeur END) AS poids_engagement,
+    MAX(CASE WHEN cle = 'poids_cloture' THEN valeur END) AS poids_cloture
+FROM score_config;

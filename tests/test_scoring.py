@@ -158,8 +158,8 @@ def test_ok_ecran_valide_si_en_baisse_vs_semaine_precedente(conn):
 @pytest.mark.parametrize(
     ("mode", "minutes", "attendu"),
     [
-        ("Entreprise", 899, 0),
-        ("Entreprise", 900, 1),
+        ("entreprise", 899, 0),
+        ("entreprise", 900, 1),
         ("ecole", 1499, 0),
         ("ecole", 1500, 1),
         (None, 630, 0),
@@ -286,8 +286,8 @@ def test_journee_repos_planifie_valide_le_sport(conn):
 @pytest.mark.parametrize(
     ("mode", "minutes", "attendu"),
     [
-        ("Entreprise", 149, 0),
-        ("Entreprise", 150, 1),
+        ("entreprise", 149, 0),
+        ("entreprise", 150, 1),
         ("ecole", 239, 0),
         ("ecole", 240, 1),
         (None, 90, 1),

@@ -21,7 +21,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import NamedTuple
 
-from src.core.tz import today_paris
+from src.core.tz import today_local
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
@@ -345,7 +345,7 @@ def _filter_month(txs: list[Transaction], month: str | None) -> list[Transaction
     if month:
         y, m = int(month[:4]), int(month[5:7])
     else:
-        today = today_paris()
+        today = today_local()
         y, m = today.year, today.month
     return [t for t in txs if t.date_op.year == y and t.date_op.month == m]
 
@@ -369,7 +369,7 @@ def _fmt(v: float, sign: bool = True) -> str:
 
 
 def display_all(month: str | None = None) -> dict:
-    mois_label = month or today_paris().strftime("%Y-%m")
+    mois_label = month or today_local().strftime("%Y-%m")
     cmb = load_cmb(month)
     fortuneo = load_fortuneo(month)
     revolut = load_revolut(month)

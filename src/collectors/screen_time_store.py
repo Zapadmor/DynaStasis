@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from src.core.tz import now_paris
+from src.core.tz import now_local
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 STORE_PATH = ROOT_DIR / "data" / "screen_time_sessions.json"
@@ -44,7 +44,7 @@ def merge_sessions(existing: list[dict], new_sessions: list[dict]) -> tuple[list
 
 
 def week_start_dt() -> datetime:
-    now = now_paris()
+    now = now_local()
     return (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
 
 

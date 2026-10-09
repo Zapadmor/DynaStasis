@@ -19,5 +19,6 @@ db/*.db
 db/*.db-*
 db/*.bak*
 docs/private/
+config/user.toml
 archives/
 *.log

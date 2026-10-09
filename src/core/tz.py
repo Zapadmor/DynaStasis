@@ -1,18 +1,23 @@
-"""Timezone helpers — toujours Europe/Paris."""
+"""Helpers de fuseau horaire — fuseau configurable (`[general] timezone` de config/user.toml)."""
 
 from __future__ import annotations
 
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-TZ = ZoneInfo("Europe/Paris")
+from src.core import user_config
 
 
-def now_paris() -> datetime:
-    """Heure courante en heure de Paris, naive (sans tzinfo) pour compatibilité."""
-    return datetime.now(TZ).replace(tzinfo=None)
+def tz() -> ZoneInfo:
+    """Fuseau horaire de l'utilisateur."""
+    return user_config.timezone()
 
 
-def today_paris():
-    """Date courante en fuseau horaire de Paris."""
-    return datetime.now(TZ).date()
+def now_local() -> datetime:
+    """Heure courante dans le fuseau configuré, naive (sans tzinfo) pour compatibilité."""
+    return datetime.now(tz()).replace(tzinfo=None)
+
+
+def today_local():
+    """Date courante dans le fuseau configuré."""
+    return datetime.now(tz()).date()

@@ -5,8 +5,10 @@ import streamlit as st
 from src.app.components import GRAY, PALETTE
 from src.app.theme import contrast_text as _contrast_text
 from src.app.theme import is_dark as _is_dark
+from src.core import user_config
+from src.core.focus_manager import forge_tag_for_mode
 from src.core.profile import get_profile
-from src.core.tz import today_paris
+from src.core.tz import today_local
 from src.database.connection import db_session
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -665,13 +667,13 @@ def _compute_audit_readouts(conn, week_id: int, week_start: str, mode_actif: str
     )
 
     jalons_txt = None
-    if mode_actif == "Entreprise":
+    if forge_tag_for_mode(mode_actif) == "FORGE_PRO":
         obj_row = conn.execute(
             "SELECT id FROM objectifs WHERE titre = ? AND statut = 'actif'",
             (get_profile("forge.objectif_pro_titre", ""),),
         ).fetchone()
         if obj_row:
-            today_str = today_paris().isoformat()
+            today_str = today_local().isoformat()
             jalons = conn.execute(
                 "SELECT statut, date_echeance FROM taches WHERE objectif_id = ?", (obj_row["id"],)
             ).fetchall()
@@ -805,18 +807,28 @@ def _render_audit_hebdo(current_week: dict | None) -> None:
                     f" {label}{detail_html}</span>"
                 )
 
+            seuils = user_config.load()["seuils"]["semaine"]
+            sommeil_h, sommeil_m = divmod(int(seuils["sommeil_min"]), 60)
             pills = [
                 _pill(
                     sc.get("ok_entrainement"),
                     "Entraîn.",
-                    f"{int(sc.get('entrainement_min', 0))}/420min",
+                    f"{int(sc.get('entrainement_min', 0))}/{seuils['entrainement_min']:.0f}min",
                 ),
-                _pill(sc.get("ok_seances"), "Séances", f"{int(sc.get('seances', 0))}/6"),
-                _pill(sc.get("ok_pas"), "Pas", f"{int(sc.get('pas_total', 0)) // 1000}k/70k"),
+                _pill(
+                    sc.get("ok_seances"),
+                    "Séances",
+                    f"{int(sc.get('seances', 0))}/{seuils['seances']:.0f}",
+                ),
+                _pill(
+                    sc.get("ok_pas"),
+                    "Pas",
+                    f"{int(sc.get('pas_total', 0)) // 1000}k/{seuils['pas'] / 1000:.0f}k",
+                ),
                 _pill(
                     sc.get("ok_sommeil"),
                     "Sommeil moy./nuit",
-                    f"{_sleep_fmt(sc.get('sleep_moy'))}/7h30",
+                    f"{_sleep_fmt(sc.get('sleep_moy'))}/{sommeil_h}h{sommeil_m:02d}",
                 ),
                 _pill(
                     sc.get("ok_charge_fraicheur"),
@@ -827,18 +839,25 @@ def _render_audit_hebdo(current_week: dict | None) -> None:
                 _pill(
                     sc.get("ok_ecran"),
                     "Écran",
-                    f"{int(sc.get('screen_distraction_min', 0))}/210min",
+                    f"{int(sc.get('screen_distraction_min', 0))}/{seuils['ecran_max_min']:.0f}min",
                 ),
                 _pill(sc.get("ok_deep_focus"), "Focus", f"{int(sc.get('deep_focus_min', 0))}min"),
                 _pill(
                     sc.get("ok_projets_fond"),
                     "Projets fond",
-                    f"{int(sc.get('focus_projets_fond_min', 0))}/120min",
+                    f"{int(sc.get('focus_projets_fond_min', 0))}/{seuils['projets_fond_min']:.0f}min",
                 ),
-                _pill(
-                    sc.get("ok_engagement"),
-                    "Engagement",
-                    f"{int(sc.get('focus_engagement_min', 0))}min · {int(sc.get('jours_engagement_semaine', 0))}j d'engagement",
+                *(
+                    [
+                        _pill(
+                            sc.get("ok_engagement"),
+                            user_config.engagement_libelle(),
+                            f"{int(sc.get('focus_engagement_min', 0))}min · "
+                            f"{int(sc.get('jours_engagement_semaine', 0))}j",
+                        )
+                    ]
+                    if user_config.engagement_actif()
+                    else []
                 ),
                 _pill(sc.get("ok_cloture"), "Clôture", sc.get("social") or "—"),
             ]
@@ -920,30 +939,35 @@ def _render_audit_hebdo(current_week: dict | None) -> None:
         col_v2.caption("Ratio Z2 vs Intensité : — (pas de source, sync Suunto à venir)")
         col_v3.caption(readouts["vigueur_hrv_sommeil_txt"])
 
-        st.markdown("**FORGE — Engagement**")
-        col_m1, col_m2, col_m3 = st.columns(3)
-        with col_m1:
-            jours_mois = st.number_input(
-                "Jours d'engagement ce mois-ci",
-                min_value=0,
-                max_value=31,
-                value=int(d.get("forge_jours_engagement_mois") or 0),
-                help="X / 30j annuel",
-            )
-        with col_m2:
-            jours_engagement_sem = st.number_input(
-                "Jours d'engagement cette semaine",
-                min_value=0,
-                max_value=7,
-                value=int(d.get("jours_engagement_semaine") or 0),
-            )
-        with col_m3:
-            drill_eng = st.text_input(
-                "Pratique de la semaine",
-                value=d.get("forge_drill_engagement") or "",
-                placeholder="Fait (X min) / Non fait",
-            )
-        st.caption(f"Temps focus dédié : {readouts['forge_engagement_txt']}")
+        jours_mois = int(d.get("forge_jours_engagement_mois") or 0)
+        jours_engagement_sem = int(d.get("jours_engagement_semaine") or 0)
+        drill_eng = d.get("forge_drill_engagement") or ""
+        if user_config.engagement_actif():
+            libelle = user_config.engagement_libelle()
+            libelle_jours = user_config.engagement_libelle_jours()
+            st.markdown(f"**FORGE — {libelle}**")
+            col_m1, col_m2, col_m3 = st.columns(3)
+            with col_m1:
+                jours_mois = st.number_input(
+                    f"{libelle_jours} ce mois-ci",
+                    min_value=0,
+                    max_value=31,
+                    value=jours_mois,
+                )
+            with col_m2:
+                jours_engagement_sem = st.number_input(
+                    f"{libelle_jours} cette semaine",
+                    min_value=0,
+                    max_value=7,
+                    value=jours_engagement_sem,
+                )
+            with col_m3:
+                drill_eng = st.text_input(
+                    "Pratique de la semaine",
+                    value=drill_eng,
+                    placeholder="Fait (X min) / Non fait",
+                )
+            st.caption(f"Temps focus dédié : {readouts['forge_engagement_txt']}")
 
         st.markdown("**FORGE — Hard Skills & Problématiques Critiques**")
         st.caption(f"Temps focus dédié : {readouts['forge_hardskills_txt']}")
@@ -953,7 +977,7 @@ def _render_audit_hebdo(current_week: dict | None) -> None:
             placeholder="Ex. Optimisation mémoire C++20 / Pipeline TensorRT…",
         )
 
-        # Initialisées avant le bloc conditionnel pour éviter tout NameError en mode ecole
+        # Initialisées avant le bloc conditionnel pour éviter tout NameError hors mode pro
         # (bloc entreprise non rendu, cf. §7 PLAN_AUDIT_HEBDO_V2.md).
         pro_champ_1 = d.get("forge_pro_champ_1")
         pro_champ_2 = d.get("forge_pro_champ_2")
@@ -965,7 +989,7 @@ def _render_audit_hebdo(current_week: dict | None) -> None:
             "audit.forge_pro_labels",
             ["Point 1 — avancement", "Point 2 — avancement", "Point 3 — avancement"],
         )
-        if mode_actif == "Entreprise":
+        if forge_tag_for_mode(mode_actif) == "FORGE_PRO":
             st.markdown("**FORGE — Entreprise**")
             st.caption(f"Temps focus dédié : {readouts['forge_pro_txt']}")
             pro_champ_1 = st.text_input(
@@ -1087,12 +1111,14 @@ def _render_audit_hebdo(current_week: dict | None) -> None:
                 height=90,
                 placeholder="Si je ne fais que ceci, la semaine est une réussite…",
             )
+        plan_drill_engagement = d.get("plan_drill_engagement") or ""
         with col_bat2:
-            plan_drill_engagement = st.text_input(
-                "Moment de la pratique (jour et heure)",
-                value=d.get("plan_drill_engagement") or "",
-                placeholder="Ex : Mardi 18h — Topo/Azimut…",
-            )
+            if user_config.engagement_actif():
+                plan_drill_engagement = st.text_input(
+                    f"{user_config.engagement_libelle()} sanctuarisé(e) (jour & heure)",
+                    value=plan_drill_engagement,
+                    placeholder="Ex : mardi 18h — séance dédiée…",
+                )
 
         submitted = st.form_submit_button("Sauvegarder l'audit", use_container_width=True)
 
@@ -1213,7 +1239,7 @@ def _render_audit_hebdo(current_week: dict | None) -> None:
 def _render_audit_trimestriel() -> None:
     st.markdown("### Audit Trimestriel — Bilan & Intentions")
 
-    today = today_paris()
+    today = today_local()
     saison_defaut = _SAISON_PAR_MOIS.get(today.month, "Printemps")
 
     col_s, col_y = st.columns([2, 1])
@@ -1329,7 +1355,7 @@ def _render_audit_annuel() -> None:
         "clinique et factuelle — réponds avec honnêteté, sans complaisance ni autoflagellation."
     )
 
-    today = today_paris()
+    today = today_local()
     annee = st.number_input(
         "Année de l'audit",
         min_value=2024,
@@ -1634,7 +1660,7 @@ def _render_notes_trop_tard() -> None:
                     format_func=lambda i: person_labels[i],
                 )
             with col_date:
-                note_date = st.date_input("Date", value=today_paris())
+                note_date = st.date_input("Date", value=today_local())
             new_note = st.text_area(
                 "Note",
                 height=90,
@@ -1682,7 +1708,7 @@ def _render_notes_trop_tard() -> None:
                     int(new_prox),
                 )
                 if new_intro.strip():
-                    _npt_add_note(new_id, today_paris().isoformat(), new_intro.strip())
+                    _npt_add_note(new_id, today_local().isoformat(), new_intro.strip())
                 st.success(f"{new_prenom.strip()} ajouté(e).")
                 st.rerun()
 

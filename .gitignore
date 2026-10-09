@@ -13,3 +13,7 @@ docs/private/
 db/*.bak*
 .env.local
 node_modules/
+
+# Configuration utilisateur et fichiers SQLite annexes
+config/user.toml
+db/*.db-*

@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 from src.config import get_secret
-from src.core.tz import now_paris
+from src.core.tz import now_local
 
 # ADB stocke ses clés RSA dans $HOME/.android — on force HOME pour que le
 # daemon ne tente pas de créer un chemin invalide si la variable est absente.
@@ -210,7 +210,7 @@ def _parse_events_to_sessions(raw: str, since: datetime) -> list[dict]:
     sessions: list[dict] = []
     active: dict[str, datetime] = {}  # package -> resumed_at
     screen_on = True
-    now = now_paris()
+    now = now_local()
 
     for line in raw.splitlines():
         m = _EVENT_RE.search(line)
@@ -291,7 +291,7 @@ def get_screen_time_summary(
         week_start_dt,
     )
 
-    now = now_paris()
+    now = now_local()
     ws = week_start_dt()
 
     client = AdbClient(host=host)

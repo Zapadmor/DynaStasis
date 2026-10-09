@@ -32,11 +32,6 @@ B = "#8ecae6"   # Sky Blue — bien
 C = "#fb8500"   # Tiger Orange — passable
 D = "#666666"   # Gris — à retravailler
 
-# Mode séquenceur — badges visibles sur fond sombre
-[colors.mode]
-ecole        = "#219ebc"   # Blue Green — mode défaut
-Entreprise = "#ffb703"   # Amber Flame — mode actif
-
 [colors.vigueur]
 ctl_moy  = "#219ebc"                # charge chronique (fitness)
 atl_moy  = "#fb8500"                # charge aiguë (fatigue)

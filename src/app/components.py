@@ -10,7 +10,8 @@ from pathlib import Path
 
 import streamlit as st
 
-from src.core.tz import today_paris
+from src.core.tz import today_local
+from src.core.user_config import mode_label, pilier_actif
 from src.styles import (
     CHART_COLORS,
     GRAY,
@@ -67,12 +68,12 @@ def _render_focus_sidebar(cw: dict | None) -> None:
     from src.core.focus_manager import (
         PILIERS,
         TAGS,
-        forge_tag_for_mode,
         get_active_session,
         get_week_pilier_breakdown,
         get_week_sessions,
         start_focus_session,
         stop_focus_session,
+        tags_proposes,
     )
 
     st.markdown("**Chrono Focus**")
@@ -95,9 +96,7 @@ def _render_focus_sidebar(cw: dict | None) -> None:
             placeholder="Tag",
         )
         mode_actif = (cw or {}).get("mode_actif")
-        forge_tag = forge_tag_for_mode(mode_actif)
-        _forge_dispo = {"FORGE_ENGAGEMENT", "FORGE_HARDSKILLS", forge_tag} - {None}
-        tag_options = [t for t in TAGS if not t.startswith("FORGE_") or t in _forge_dispo]
+        tag_options = tags_proposes(mode_actif)
         piliers_sel = st.multiselect(
             "Pilier(s)",
             options=tag_options,
@@ -121,7 +120,7 @@ def _render_focus_sidebar(cw: dict | None) -> None:
                 parts = [
                     f"{p.capitalize()} {breakdown[p] / total * 100:.0f}%"
                     for p in PILIERS
-                    if breakdown[p] > 0
+                    if breakdown[p] > 0 and pilier_actif(p)
                 ]
                 if parts:
                     st.caption("Répartition : " + " / ".join(parts))
@@ -138,7 +137,7 @@ def _cascade_sync() -> None:
     """
     from src.core.system_engine import get_or_create_week_id, trigger_cascade_week
 
-    date_str = today_paris().isoformat()
+    date_str = today_local().isoformat()
     week_id = get_or_create_week_id(date_str)
     trigger_cascade_week(week_id)
 
@@ -151,7 +150,7 @@ def _render_habit_sidebar() -> None:
     from src.database.connection import db_session
 
     st.markdown("**Log du jour**")
-    today_str = today_paris().isoformat()
+    today_str = today_local().isoformat()
 
     with db_session() as conn:
         row = conn.execute(
@@ -203,8 +202,7 @@ def render_sidebar(cw: dict | None) -> None:
 
         if cw:
             st.subheader(cw["week_label"])
-            mode = cw.get("mode_actif") or "ecole"
-            st.metric("Mode", mode)
+            st.metric("Mode", mode_label(cw.get("mode_actif")))
         else:
             st.info("Aucune semaine active.")
 
@@ -215,7 +213,7 @@ def render_sidebar(cw: dict | None) -> None:
         _render_habit_sidebar()
 
         st.markdown("---")
-        st.caption(f"Aujourd'hui : {today_paris().isoformat()}")
+        st.caption(f"Aujourd'hui : {today_local().isoformat()}")
 
         st.markdown("---")
         st.markdown("**Écoute**")

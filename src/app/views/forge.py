@@ -7,7 +7,7 @@ import streamlit as st
 from src.app.components import PALETTE
 from src.app.theme import contrast_text as _contrast_text
 from src.core import projets
-from src.core.tz import today_paris
+from src.core.tz import today_local
 from src.database.connection import db_session
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -626,7 +626,7 @@ def _tab_projets() -> None:
 def _tab_finance() -> None:
     st.markdown("### Finance & Souveraineté Économique")
 
-    mois = today_paris().strftime("%Y-%m")
+    mois = today_local().strftime("%Y-%m")
 
     # ── 1. Treemap + Suivi investissements ────────────────────────────────────
     col_tree, col_invest = st.columns([2, 1], gap="large")
@@ -714,7 +714,7 @@ def _tab_finance() -> None:
             if st.button("Enregistrer", key="inv_save"):
                 from src.core.system_engine import get_or_create_week_id
 
-                week_id = get_or_create_week_id(today_paris().isoformat())
+                week_id = get_or_create_week_id(today_local().isoformat())
                 with db_session() as conn:
                     conn.execute(
                         """UPDATE semaines_audit
@@ -753,7 +753,7 @@ def _tab_finance() -> None:
     with st.expander("Soldes comptes — mise à jour", expanded=False):
         st.caption("Saisissez les soldes actuels de chaque compte, puis enregistrez.")
         date_snap = st.date_input(
-            "Date du relevé", value=today_paris(), key="pat_date_snap"
+            "Date du relevé", value=today_local(), key="pat_date_snap"
         ).isoformat()
 
         for c in comptes:
@@ -824,7 +824,7 @@ def _tab_finance() -> None:
                             use_container_width=True,
                         )
                         date_rev = st.date_input(
-                            "Date du relevé", value=today_paris(), key="rev_date"
+                            "Date du relevé", value=today_local(), key="rev_date"
                         ).isoformat()
                         if st.button("Importer ces soldes", key="rev_import"):
                             n = 0
@@ -864,7 +864,7 @@ def _tab_finance() -> None:
                         st.dataframe(df_lx, hide_index=True, use_container_width=True)
                         st.metric("Total AV", f"{sum(lg['valeur'] for lg in lignes):,.2f} €")
                         date_lx = st.date_input(
-                            "Date du relevé", value=today_paris(), key="lx_date"
+                            "Date du relevé", value=today_local(), key="lx_date"
                         ).isoformat()
                         lx_comptes = {
                             c["type_compte"]: c for c in comptes if c["source"] == "linxea"
@@ -979,11 +979,11 @@ def _tab_finance() -> None:
                 with c_date:
                     pos_date = st.text_input(
                         "Date snapshot",
-                        value=today_paris().isoformat(),
+                        value=today_local().isoformat(),
                         placeholder="AAAA-MM-JJ",
                     )
                 if st.form_submit_button("Enregistrer la position") and pos_support.strip():
-                    snap = pos_date.strip() or today_paris().isoformat()
+                    snap = pos_date.strip() or today_local().isoformat()
                     _upsert_position(
                         snap,
                         compte_pos["id"],

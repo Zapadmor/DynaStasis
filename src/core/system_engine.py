@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+from src.core import user_config
 from src.database.connection import db_session
 
 
@@ -28,7 +29,7 @@ def get_or_create_week_id(date_str: str) -> int:
             "SELECT lieu FROM sequences_mode WHERE ? BETWEEN date_debut AND date_fin",
             (week_start,),
         ).fetchone()
-        mode_actif = mode_row["lieu"] if mode_row else "ecole"
+        mode_actif = mode_row["lieu"] if mode_row else user_config.default_mode()
 
         freeze_row = conn.execute(
             "SELECT 1 FROM system_freezes"
@@ -82,7 +83,7 @@ def trigger_cascade_week(week_id: int) -> None:
                 sessions_lecture        = ?,
                 sessions_sport          = ?,
                 sessions_jeune          = ?,
-                focus_engagement_min     = ?,
+                focus_engagement_min    = ?,
                 focus_projets_fond_min  = ?,
                 updated_at              = datetime('now')
                WHERE id = ?""",

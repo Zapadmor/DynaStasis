@@ -13,7 +13,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from src.core.tz import today_paris
+from src.core.tz import today_local
 
 _SRC_DIR = Path(__file__).resolve().parents[1]  # src/
 ROOT_DIR = Path(__file__).resolve().parents[2]  # project root
@@ -423,7 +423,7 @@ def _build_html(budget: dict, fig_sankey: go.Figure, fig_treemap: go.Figure, sol
 <div style="display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:4px;">
   <h1>Finance Dashboard</h1>
 </div>
-<p class="subtitle">Généré le {today_paris().isoformat()} — mois de référence : {budget.get("mois_reference", "")}</p>
+<p class="subtitle">Généré le {today_local().isoformat()} — mois de référence : {budget.get("mois_reference", "")}</p>
 
 <!-- Treemap patrimoine -->
 <div class="card">

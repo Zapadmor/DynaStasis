@@ -9,6 +9,8 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
+from src.core import user_config
+
 _CFG_PATH = Path(__file__).parent / "styles.toml"
 with open(_CFG_PATH, "rb") as _f:
     _cfg = tomllib.load(_f)
@@ -20,7 +22,10 @@ GRAY = _misc["gray"]
 WHITE = _misc["white"]
 TRANSPARENT = _misc["transparent"]
 
-MODE_COLORS: dict[str, str] = _cfg["colors"]["mode"]
+# Couleurs des badges de mode : définies par mode dans config/user.toml
+MODE_COLORS: dict[str, str] = {
+    code: m.couleur for code, m in user_config.modes().items() if m.couleur
+}
 RANK_COLORS: dict[str, str] = _cfg["colors"]["rank"]
 VIGUEUR_COLORS: dict[str, str] = _cfg["colors"]["vigueur"]
 SANKEY_NODE_COLORS: dict[str, str] = _cfg["colors"]["sankey_nodes"]

@@ -10,7 +10,8 @@ import streamlit.components.v1 as components
 from src.app import theme as _theme
 from src.app.components import CHART_COLORS, GRAY, MODE_COLORS, PALETTE, TRANSPARENT
 from src.config import get_secret
-from src.core.tz import TZ, today_paris
+from src.core import user_config
+from src.core.tz import today_local, tz
 from src.database.connection import db_session
 
 # ── Pentagone ─────────────────────────────────────────────────────────────────
@@ -29,24 +30,28 @@ _PILIER_QUERY = """
 # (c'est littéralement le critère combiné "FORGE & LOGOS — Focus projets de fond").
 # VIGUEUR = physique pur (5 critères) | FORGE = engagement + projets de fond
 # LOGOS = deep focus contextuel + projets de fond | RÉSONNANCE = discipline écran + clôture audit
+def _moyenne_criteres(r, criteres: list[str]) -> float | None:
+    """% de critères validés parmi ceux qui sont actifs (poids > 0) ; None si aucun n'est actif."""
+    actifs = [c for c in criteres if user_config.critere_actif(c)]
+    if not actifs:
+        return None
+    return round(100.0 * sum(r[f"ok_{c}"] for c in actifs) / len(actifs), 1)
+
+
 def _scores_from_row(r) -> dict[str, float]:
-    return {
-        "VIGUEUR": round(
-            100.0
-            * (
-                r["ok_entrainement"]
-                + r["ok_seances"]
-                + r["ok_pas"]
-                + r["ok_sommeil"]
-                + r["ok_charge_fraicheur"]
-            )
-            / 5,
-            1,
-        ),
-        "FORGE": round(100.0 * (r["ok_engagement"] + r["ok_projets_fond"]) / 2, 1),
-        "LOGOS": round(100.0 * (r["ok_deep_focus"] + r["ok_projets_fond"]) / 2, 1),
-        "RÉSONNANCE": round(100.0 * (r["ok_ecran"] + r["ok_cloture"]) / 2, 1),
+    par_pilier = {
+        "VIGUEUR": ["entrainement", "seances", "pas", "sommeil", "charge_fraicheur"],
+        "FORGE": ["engagement", "projets_fond"],
+        "LOGOS": ["deep_focus", "projets_fond"],
+        "RÉSONNANCE": ["ecran", "cloture"],
     }
+    scores = {}
+    for pilier, criteres in par_pilier.items():
+        cle = "RESONNANCE" if pilier == "RÉSONNANCE" else pilier
+        valeur = _moyenne_criteres(r, criteres)
+        if valeur is not None and user_config.pilier_actif(cle):
+            scores[pilier] = valeur
+    return scores
 
 
 def _palier(ok: bool, label: str, current, target: float, unit: str = "") -> str:
@@ -82,7 +87,7 @@ def _reconcile_frozen_weeks() -> tuple[int, int]:
     """
     from src.core.system_engine import get_or_create_week_id
 
-    today = today_paris().isoformat()
+    today = today_local().isoformat()
     with db_session() as conn:
         freezes = conn.execute("SELECT date_debut, date_fin FROM system_freezes").fetchall()
         before = conn.execute("SELECT COUNT(*) FROM semaines_audit").fetchone()[0]
@@ -123,7 +128,7 @@ def _get_median_pentagon(before_week_start: str) -> dict[str, float] | None:
     if len(rows) < _N_WEEKS_MEDIAN:
         return None
 
-    keys = ["FORGE", "LOGOS", "VIGUEUR", "RÉSONNANCE"]
+    keys = list(_scores_from_row(rows[0]))
     per_pilier = {k: [] for k in keys}
     for r in rows:
         for k, v in _scores_from_row(r).items():
@@ -136,7 +141,7 @@ def _pentagon_scores_from_db(week_start: str) -> dict[str, float]:
     with db_session() as conn:
         row = conn.execute(_PILIER_QUERY + "WHERE week_start = ?", (week_start,)).fetchone()
     if not row:
-        return {"FORGE": 0.0, "LOGOS": 0.0, "VIGUEUR": 0.0, "RÉSONNANCE": 0.0}
+        return dict.fromkeys(("FORGE", "LOGOS", "VIGUEUR", "RÉSONNANCE"), 0.0)
     return _scores_from_row(row)
 
 
@@ -228,7 +233,7 @@ def _render_weekly_analysis() -> None:
     week_start = datetime.date.fromisoformat(week_start_str)
     week_end_str = (week_start + datetime.timedelta(days=7)).isoformat()
     day_isos = [(week_start + datetime.timedelta(days=i)).isoformat() for i in range(7)]
-    is_current_week = week_start <= today_paris() < week_start + datetime.timedelta(days=7)
+    is_current_week = week_start <= today_local() < week_start + datetime.timedelta(days=7)
 
     selected_metrics = st.multiselect(
         "Métriques",
@@ -266,7 +271,7 @@ def _render_weekly_analysis() -> None:
         ).fetchone()
         today_prog_row = conn.execute(
             "SELECT * FROM v_progression_quotidienne WHERE date_log = ?",
-            (today_paris().isoformat(),),
+            (today_local().isoformat(),),
         ).fetchone()
 
     by_date: dict[str, dict] = {d: {} for d in day_isos}
@@ -322,20 +327,36 @@ def _render_weekly_analysis() -> None:
     if is_current_week:
         if today_prog_row:
             tp = dict(today_prog_row)
+            mode_cfg = user_config.modes().get(tp["mode_actif"] or "")
             focus_target = (
-                150
-                if tp["mode_actif"] == "Entreprise"
-                else 240
-                if tp["mode_actif"] == "ecole"
-                else 90
+                mode_cfg.focus_jour_min
+                if mode_cfg
+                else user_config.load()["seuils"]["jour"]["focus_defaut_min"]
             )
+            seuils_j = user_config.load()["seuils"]["jour"]
             day_parts = [
-                _palier(bool(tp["ok_sport"]), "Sport", tp["moving_time_min"], 60, "min"),
-                _palier(bool(tp["ok_sommeil"]), "Sommeil", tp["sleep_min"], 450, "min"),
-                _palier(bool(tp["ok_pas"]), "Pas", tp["steps"], 10000),
+                _palier(
+                    bool(tp["ok_sport"]),
+                    "Sport",
+                    tp["moving_time_min"],
+                    seuils_j["sport_min"],
+                    "min",
+                ),
+                _palier(
+                    bool(tp["ok_sommeil"]),
+                    "Sommeil",
+                    tp["sleep_min"],
+                    seuils_j["sommeil_min"],
+                    "min",
+                ),
+                _palier(bool(tp["ok_pas"]), "Pas", tp["steps"], seuils_j["pas"]),
                 _palier(bool(tp["ok_focus"]), "Focus", tp["focus_min"], focus_target, "min"),
                 _palier(
-                    bool(tp["ok_focus_strat"]), "Focus strat.", tp["focus_strat_min"], 30, "min"
+                    bool(tp["ok_focus_strat"]),
+                    "Focus strat.",
+                    tp["focus_strat_min"],
+                    seuils_j["focus_strat_min"],
+                    "min",
                 ),
             ]
             screen_val = tp["screen_min"] or 0
@@ -352,11 +373,24 @@ def _render_weekly_analysis() -> None:
     if score_row:
         sr = dict(score_row)
 
+        seuils_w = user_config.load()["seuils"]["semaine"]
         week_parts = [
-            _palier(bool(sr["ok_entrainement"]), "Entraîn.", sr["entrainement_min"], 420, "min"),
-            _palier(bool(sr["ok_seances"]), "Séances", sr["seances"], 6),
-            _palier(bool(sr["ok_pas"]), "Pas", sr["pas_total"], 70000),
-            _palier(bool(sr["ok_sommeil"]), "Sommeil moy./nuit", sr["sleep_moy"], 450, "min"),
+            _palier(
+                bool(sr["ok_entrainement"]),
+                "Entraîn.",
+                sr["entrainement_min"],
+                seuils_w["entrainement_min"],
+                "min",
+            ),
+            _palier(bool(sr["ok_seances"]), "Séances", sr["seances"], seuils_w["seances"]),
+            _palier(bool(sr["ok_pas"]), "Pas", sr["pas_total"], seuils_w["pas"]),
+            _palier(
+                bool(sr["ok_sommeil"]),
+                "Sommeil moy./nuit",
+                sr["sleep_moy"],
+                seuils_w["sommeil_min"],
+                "min",
+            ),
         ]
 
         if sr["ok_charge_fraicheur"]:
@@ -376,14 +410,17 @@ def _render_weekly_analysis() -> None:
             week_parts.append(f"✓ Écran dist. {screen:.0f}min")
         else:
             cible = (
-                f"seuil 210min ou < {screen_prev:.0f}min S préc."
+                f"seuil {seuils_w['ecran_max_min']:.0f}min ou < {screen_prev:.0f}min S préc."
                 if screen_prev is not None
-                else "seuil 210min"
+                else f"seuil {seuils_w['ecran_max_min']:.0f}min"
             )
             week_parts.append(f"✗ Écran dist. {screen:.0f}min ({cible})")
 
+        mode_cfg = user_config.modes().get(sr["mode_actif"] or "")
         focus_target = (
-            900 if sr["mode_actif"] == "Entreprise" else 1500 if sr["mode_actif"] == "ecole" else 631
+            mode_cfg.focus_semaine_min
+            if mode_cfg
+            else user_config.load()["seuils"]["semaine"]["focus_defaut_min"] + 1
         )
         week_parts.append(
             _palier(bool(sr["ok_deep_focus"]), "Focus", sr["deep_focus_min"], focus_target, "min")
@@ -393,18 +430,22 @@ def _render_weekly_analysis() -> None:
                 bool(sr["ok_projets_fond"]),
                 "Projets fond",
                 sr["focus_projets_fond_min"],
-                120,
+                seuils_w["projets_fond_min"],
                 "min",
             )
         )
 
-        if sr["ok_engagement"]:
-            week_parts.append("✓ Engagement")
-        else:
-            week_parts.append(
-                f"✗ Engagement {sr['focus_engagement_min']:.0f}min · {sr['jours_engagement_semaine']:.0f}j d'engagement "
-                "(besoin ≥45min ou ≥1j d'engagement)"
-            )
+        if user_config.engagement_actif():
+            libelle = user_config.engagement_libelle()
+            if sr["ok_engagement"]:
+                week_parts.append(f"✓ {libelle}")
+            else:
+                week_parts.append(
+                    f"✗ {libelle} {sr['focus_engagement_min']:.0f}min · "
+                    f"{sr['jours_engagement_semaine']:.0f}j "
+                    f"(besoin ≥{seuils_w['engagement_min']:.0f}min "
+                    f"ou ≥{seuils_w['engagement_jours']:.0f}j)"
+                )
 
         if sr["ok_cloture"]:
             week_parts.append("✓ Clôture")
@@ -614,7 +655,7 @@ def _render_weekly_tasks(today: datetime.date) -> None:
 
 
 def _render_calendar_tab() -> None:
-    today = today_paris()
+    today = today_local()
     _ensure_taches_cols()
 
     with db_session() as conn:
@@ -629,7 +670,7 @@ def _render_calendar_tab() -> None:
         if cal_src:
             components.iframe(
                 "https://calendar.google.com/calendar/embed"
-                f"?src={quote(cal_src, safe='')}&ctz={quote(TZ.key, safe='')}",
+                f"?src={quote(cal_src, safe='')}&ctz={quote(tz().key, safe='')}",
                 height=600,
                 scrolling=False,
             )
@@ -724,14 +765,14 @@ def render(current_week: dict | None) -> None:
         return
 
     # ── Mode + semaine ────────────────────────────────────────────────────────
-    mode = current_week.get("mode_actif") or "ecole"
+    mode = current_week.get("mode_actif") or user_config.default_mode()
     mode_color = MODE_COLORS.get(mode, PALETTE["blue_green"])
     st.markdown("---")
     col_b, col_l = st.columns([1, 6])
     with col_b:
         st.markdown(
             f'<span style="background:{mode_color};color:white;padding:4px 14px;'
-            f'border-radius:20px;font-size:.85rem;font-weight:600;">MODE {mode}</span>',
+            f'border-radius:20px;font-size:.85rem;font-weight:600;">MODE {user_config.mode_label(mode)}</span>',
             unsafe_allow_html=True,
         )
     with col_l:
@@ -746,7 +787,7 @@ def render(current_week: dict | None) -> None:
         scores = _pentagon_scores_from_db(current_week["week_start"])
         pentagon_label = "Semaine courante"
 
-    energy = round(sum(scores.values()) / len(scores), 1)
+    energy = round(sum(scores.values()) / len(scores), 1) if scores else 0.0
 
     col_radar, col_right = st.columns([1.4, 1], gap="large")
 
@@ -826,13 +867,13 @@ def render(current_week: dict | None) -> None:
             "Score global",
             f"{energy:.0f} / 100",
             help=(
-                "Moyenne des 4 piliers sur les 4 dernières semaines complètes.\n\n"
-                "Chaque pilier = % de critères binaires validés (modèle v2) :\n"
-                "- VIGUEUR : entraîn. ≥ 420 min, séances ≥ 6, pas ≥ 70 000, "
-                "sommeil ≥ 450 min, charge/fraîcheur (TSB)\n"
-                "- FORGE : focus engagement ≥ 45 min (ou ≥ 1j d'engagement), focus projets de fond ≥ 120 min\n"
-                "- LOGOS : deep focus mode-aware, focus projets de fond ≥ 120 min\n"
-                "- RÉSONNANCE : écran distraction ≤ 210 min (ou en baisse), clôture audit"
+                "Moyenne des piliers actifs sur les 4 dernières semaines complètes.\n\n"
+                "Chaque pilier = % de critères binaires validés. Seuils, poids et critères "
+                "actifs : `config/user.toml`.\n"
+                "- VIGUEUR : entraînement, séances, pas, sommeil, charge/fraîcheur (TSB)\n"
+                f"- FORGE : {user_config.engagement_libelle().lower()} (si activé), projets de fond\n"
+                "- LOGOS : deep focus selon le mode, projets de fond\n"
+                "- RÉSONNANCE : écran distraction, clôture de l'audit"
             ),
         )
         st.progress(int(energy))

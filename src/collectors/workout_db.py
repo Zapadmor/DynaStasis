@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from src.core.tz import now_paris
+from src.core.tz import now_local
 from src.database.connection import db_session
 
 
@@ -79,7 +79,7 @@ def create_session(
     name: str,
     bodyweight_kg: float = 0.0,
 ) -> int:
-    started_at = now_paris().isoformat(timespec="seconds")
+    started_at = now_local().isoformat(timespec="seconds")
     with db_session() as conn:
         cur = conn.execute(
             """
@@ -161,7 +161,7 @@ def save_session_exercises(
 
 def finish_session(session_id: int, bodyweight_kg: float = 0.0) -> None:
     """Mark session finished and compute total volume from completed sets."""
-    finished_at = now_paris().isoformat(timespec="seconds")
+    finished_at = now_local().isoformat(timespec="seconds")
     with db_session() as conn:
         # Volume = Σ (load_kg × reps) pour les séries effectuées
         row = conn.execute(

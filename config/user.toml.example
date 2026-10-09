@@ -1,0 +1,76 @@
+# DynaStasis — configuration utilisateur (modèle).
+#
+#   cp config/user.toml.example config/user.toml
+#
+# `config/user.toml` est ignoré par git et exclu des images Docker. Le fichier est facultatif :
+# toute clé absente garde la valeur ci-dessous. Chemin personnalisable : DYNASTASIS_CONFIG.
+# Les modifications sont prises en compte au redémarrage de l'application.
+
+[general]
+timezone = "Europe/Paris"      # nom IANA : "America/Montreal", "Asia/Tokyo", "UTC"…
+
+# Piliers visibles dans la navigation et le radar : FORGE, LOGOS, VIGUEUR, RESONNANCE, SYSTEME.
+[piliers]
+actifs = ["FORGE", "LOGOS", "VIGUEUR", "RESONNANCE", "SYSTEME"]
+
+# Critère « engagement » : une pratique régulière que vous voulez suivre à part (service civique,
+# bénévolat, club, association…). Validé si le focus taggé dépasse le seuil OU si le nombre de jours
+# d'engagement de la semaine atteint le seuil. `actif = false` retire le critère du score.
+[engagement]
+actif = true
+libelle = "Engagement"
+libelle_jours = "Jours d'engagement"
+
+# Modes (rythmes de vie : études, entreprise, vacances…). La clé de section est le code stocké en
+# base : ne le changez plus une fois des semaines enregistrées. Le premier mode est celui des
+# semaines sans séquence. `tag_pro = true` propose le tag « Forge — Entreprise » dans ce mode.
+[modes.ecole]
+label = "École"
+focus_jour_min = 240           # objectif de focus quotidien (minutes)
+focus_semaine_min = 1500       # objectif de focus hebdomadaire (minutes)
+tag_pro = false
+couleur = "#219ebc"
+
+[modes.entreprise]
+label = "Entreprise"
+focus_jour_min = 150
+focus_semaine_min = 900
+tag_pro = true
+couleur = "#ffb703"
+
+# Seuils des critères (un critère est validé quand la valeur atteint le seuil).
+[seuils.jour]                  # « journée parfaite » : 6 critères
+sport_min = 60                 # minutes de sport (ou jour de repos planifié)
+sommeil_min = 450
+pas = 10000
+focus_strat_min = 30           # focus Forge / Logos
+ecran_max_min = 30             # écran distractif, ou en baisse vs même jour S-1
+focus_defaut_min = 90          # focus quotidien si la semaine n'a pas de mode
+
+[seuils.semaine]               # score hebdomadaire : 10 critères
+seance_duree_min = 30          # durée minimale pour compter comme séance
+entrainement_min = 420
+seances = 6
+pas = 70000
+sommeil_min = 450              # moyenne par nuit
+tsb_min = -25                  # fraîcheur (TSB) minimale en semaine normale
+tsb_decharge_min = -5          # … en semaine de décharge
+ecran_max_min = 210            # écran distractif hebdo, ou en baisse vs semaine précédente
+projets_fond_min = 120
+engagement_min = 45
+engagement_jours = 1
+focus_defaut_min = 630         # focus hebdo (strictement supérieur) si pas de mode
+
+# Poids des critères dans le score hebdo (moyenne pondérée). 0 désactive un critère : le score
+# est alors calculé sur les critères restants.
+[poids]
+entrainement = 1
+seances = 1
+pas = 1
+sommeil = 1
+charge_fraicheur = 1
+ecran = 1
+deep_focus = 1
+projets_fond = 1
+engagement = 1
+cloture = 1

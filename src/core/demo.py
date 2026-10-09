@@ -12,11 +12,11 @@ import sqlite3
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from src.core import projets
+from src.core import projets, user_config
 from src.core.focus_manager import TAGS
 from src.core.profile import set_profile
 from src.core.system_engine import get_or_create_week_id, trigger_cascade_week
-from src.core.tz import today_paris
+from src.core.tz import today_local
 from src.database import connection
 
 MARKER_KEY = "demo.marker"
@@ -87,7 +87,7 @@ def seed_demo(db_path: Path | str | None = None, *, allow_real_db: bool = False)
     connection.DB_PATH = path
     try:
         connection.init_db()
-        _Seeder(today_paris()).run()
+        _Seeder(today_local()).run()
     finally:
         connection.DB_PATH = previous
     return path
@@ -138,16 +138,18 @@ class _Seeder:
     # ── modes (séquences école / entreprise) ─────────────────────────────────
     def _modes(self) -> None:
         mid = self.first_monday + timedelta(weeks=6)
+        codes = list(user_config.modes())
+        codes = (codes + codes)[:2]  # une seule séquence répétée si un seul mode est configuré
         self.conn.executemany(
             "INSERT INTO sequences_mode (numero, lieu, date_debut, date_fin) VALUES (?, ?, ?, ?)",
             [
                 (
                     1,
-                    "ecole",
+                    codes[0],
                     (self.first_monday - timedelta(weeks=12)).isoformat(),
                     (mid - timedelta(days=1)).isoformat(),
                 ),
-                (2, "Entreprise", mid.isoformat(), (mid + timedelta(weeks=20)).isoformat()),
+                (2, codes[1], mid.isoformat(), (mid + timedelta(weeks=20)).isoformat()),
             ],
         )
 

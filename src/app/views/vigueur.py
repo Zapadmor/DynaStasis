@@ -29,7 +29,7 @@ from src.collectors.workout_db import (
     update_template_from_session,
 )
 from src.core.profile import get_profile
-from src.core.tz import today_paris
+from src.core.tz import today_local
 from src.database.connection import db_session
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ def _latest(df, col: str):
 
 
 def _phase_status(start: str, end: str) -> str:
-    today = today_paris()
+    today = today_local()
     if today < datetime.date.fromisoformat(start):
         return "À VENIR"
     if today > datetime.date.fromisoformat(end):
@@ -187,7 +187,7 @@ def _empty_chart(height: int = 110) -> None:
 
 
 def _render_hero(df_w, df_d) -> None:
-    today = today_paris()
+    today = today_local()
     phase = next(
         (p for p in _macro_cycle() if _phase_status(p["Début"], p["Fin"]) == "EN COURS"),
         None,
@@ -297,7 +297,7 @@ def _render_charge_chart(df_daily) -> None:
     )
     st.query_params["vigueur_range"] = sel
 
-    cutoff = (today_paris() - datetime.timedelta(days=_RANGE_DAYS[sel])).isoformat()
+    cutoff = (today_local() - datetime.timedelta(days=_RANGE_DAYS[sel])).isoformat()
     df = df_daily[df_daily["date_entry"] >= cutoff].copy()
     if df.empty:
         df = df_daily.copy()
@@ -618,7 +618,7 @@ def _render_recovery_row(df_w, df_d) -> None:
 
 
 def _render_macro_cycle() -> None:
-    today = today_paris()
+    today = today_local()
     rows = []
     for p in _macro_cycle():
         status = _phase_status(p["Début"], p["Fin"])
@@ -920,7 +920,7 @@ _WORKOUT_CSS = """
 
 
 def _tab_log_workouts() -> None:
-    today = today_paris().isoformat()
+    today = today_local().isoformat()
 
     active_key = "workout_active_session_id"
     exercises_key = "workout_exercises"

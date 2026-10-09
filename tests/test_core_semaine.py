@@ -49,9 +49,9 @@ def test_mode_actif_depuis_sequences_mode_sinon_ecole(db):
     with db_session() as c:
         c.execute(
             "INSERT INTO sequences_mode (numero, lieu, date_debut, date_fin)"
-            " VALUES (1, 'Entreprise', '2026-03-02', '2026-03-13')"
+            " VALUES (1, 'entreprise', '2026-03-02', '2026-03-13')"
         )
-    assert _semaine(system_engine.get_or_create_week_id("2026-03-04"))["mode_actif"] == "Entreprise"
+    assert _semaine(system_engine.get_or_create_week_id("2026-03-04"))["mode_actif"] == "entreprise"
     assert _semaine(system_engine.get_or_create_week_id("2026-03-16"))["mode_actif"] == "ecole"
 
 
@@ -185,7 +185,7 @@ def test_get_week_habits_trie_par_date_et_isole_par_semaine(db):
 
 
 @pytest.mark.parametrize(
-    ("mode", "tag"), [("Entreprise", "FORGE_PRO"), ("ecole", None), (None, None)]
+    ("mode", "tag"), [("entreprise", "FORGE_PRO"), ("ecole", None), (None, None)]
 )
 def test_forge_tag_for_mode(mode, tag):
     assert focus_manager.forge_tag_for_mode(mode) == tag
