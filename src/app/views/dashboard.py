@@ -433,6 +433,9 @@ def _render_history() -> None:
         records = [dict(r) for r in rows]
         for r in records:
             week_start = r.pop("week_start")
+            # Colonne texte homogène : mélanger nombres et « freeze » casse la conversion Arrow
+            score = r["score_semaine"]
+            r["score_semaine"] = None if score is None else f"{score:g}"
             if r.pop("is_frozen"):
                 week_end = (
                     datetime.date.fromisoformat(week_start) + datetime.timedelta(days=6)
