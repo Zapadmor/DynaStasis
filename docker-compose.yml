@@ -10,12 +10,16 @@ services:
       - "8501:8501"
     dns:
       - ${DYNASTASIS_DNS:-8.8.8.8}
+    environment:
+      DYNASTASIS_DB: /app/dbdata/dynastasie.db
     # Secrets : fichier hors dépôt (chmod 600), jamais monté dans l'image
     env_file:
       - ${DYNASTASIS_ENV_FILE:-${HOME}/.config/dynastasie/secrets.env}
     volumes:
       - ./data:/app/data
-      - ./db:/app/db
+      # La base vit dans un dossier dédié : ne PAS monter ./db sur /app/db, sinon le schéma et
+      # les migrations du dossier de travail (peut-être en cours de modification) écrasent ceux de l'image.
+      - ./db:/app/dbdata
       - ./config:/app/config:ro
       - ./.streamlit/config.toml:/app/.streamlit/config.toml
       - ./.streamlit/themes:/app/.streamlit/themes
