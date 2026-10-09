@@ -14,6 +14,18 @@ La DB principale est dans `db/dynastasie.db`.
 
 ---
 
+## Schéma et migrations
+
+`db/schema.sql` est le schéma de base (base vide). Les évolutions passent par des migrations numérotées `db/migrations/NNN_description.sql`, appliquées dans l'ordre au lancement de l'app ou par :
+
+```bash
+python main.py init-db
+```
+
+La version appliquée est stockée dans `PRAGMA user_version`. Pour ajouter une évolution : créer le fichier suivant (`004_...sql`), sans modifier les migrations déjà publiées. Les `ALTER TABLE ... ADD COLUMN` déjà appliqués sont ignorés, donc une migration peut être rejouée sans erreur.
+
+---
+
 ## Explorer la base de données — sqlite_web
 
 Lance une interface web locale pour inspecter toutes les tables SQLite :

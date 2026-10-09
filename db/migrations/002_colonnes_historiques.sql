@@ -1,0 +1,91 @@
+-- Colonnes ajoutées après coup. Le runner ignore « duplicate column name » (colonne déjà
+-- présente) et « no such column » (renommage déjà fait).
+
+ALTER TABLE vigueur_entries ADD COLUMN hrv REAL;
+ALTER TABLE vigueur_entries ADD COLUMN rhr REAL;
+ALTER TABLE vigueur_entries ADD COLUMN sleep_min REAL;
+ALTER TABLE vigueur_entries ADD COLUMN steps INTEGER;
+
+ALTER TABLE exercise_library ADD COLUMN load_formula TEXT NOT NULL DEFAULT 'weight';
+ALTER TABLE workout_sessions ADD COLUMN bodyweight_kg REAL;
+ALTER TABLE workout_sessions ADD COLUMN session_volume_kg REAL;
+ALTER TABLE workout_session_sets ADD COLUMN completed INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE workout_session_sets ADD COLUMN load_kg REAL;
+ALTER TABLE workout_template_exercises ADD COLUMN emom_interval_sec INTEGER;
+ALTER TABLE workout_session_exercises ADD COLUMN emom_interval_sec INTEGER;
+ALTER TABLE workout_sessions ADD COLUMN intervals_activity_id TEXT;
+
+ALTER TABLE audit_narrative ADD COLUMN forge_jours_engagement_mois INTEGER;
+ALTER TABLE audit_narrative ADD COLUMN jours_engagement_semaine INTEGER DEFAULT 0;
+ALTER TABLE audit_narrative ADD COLUMN forge_drill_engagement TEXT;
+ALTER TABLE audit_narrative ADD COLUMN forge_hardskills_sujet TEXT;
+ALTER TABLE audit_narrative ADD COLUMN forge_pro_champ_1 TEXT;
+ALTER TABLE audit_narrative ADD COLUMN forge_pro_champ_2 TEXT;
+ALTER TABLE audit_narrative ADD COLUMN forge_pro_champ_3 TEXT;
+ALTER TABLE audit_narrative ADD COLUMN forge_pro_blocage TEXT;
+ALTER TABLE audit_narrative ADD COLUMN forge_pro_dependance_tiers INTEGER;
+ALTER TABLE audit_narrative ADD COLUMN logos_avancement_uvs TEXT;
+ALTER TABLE audit_narrative ADD COLUMN logos_projet_tx TEXT;
+ALTER TABLE audit_narrative ADD COLUMN logos_article_analyse TEXT;
+ALTER TABLE audit_narrative ADD COLUMN alignement_prerequis TEXT;
+ALTER TABLE audit_narrative ADD COLUMN alignement_stage TEXT;
+ALTER TABLE audit_narrative ADD COLUMN alignement_friction_semaine TEXT;
+ALTER TABLE audit_narrative ADD COLUMN plan_drill_engagement TEXT;
+
+ALTER TABLE semaines_audit ADD COLUMN focus_engagement_min REAL;
+ALTER TABLE semaines_audit ADD COLUMN focus_projets_fond_min REAL;
+
+ALTER TABLE audit_annuel ADD COLUMN m1_note_recuperation INTEGER;
+ALTER TABLE audit_annuel ADD COLUMN m1_note_signaux INTEGER;
+ALTER TABLE audit_annuel ADD COLUMN m1_note_soupapes INTEGER;
+ALTER TABLE audit_annuel ADD COLUMN m1_note_respiration INTEGER;
+ALTER TABLE audit_annuel ADD COLUMN m1_cout_allostasie TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m1_sources_ressourcement TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m2_note_flow INTEGER;
+ALTER TABLE audit_annuel ADD COLUMN m2_note_fierte INTEGER;
+ALTER TABLE audit_annuel ADD COLUMN m2_note_effort INTEGER;
+ALTER TABLE audit_annuel ADD COLUMN m2_note_priorites INTEGER;
+ALTER TABLE audit_annuel ADD COLUMN m2_flow_moment1 TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m2_flow_moment2 TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m2_friction_tache1 TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m2_friction_tache2 TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m3_note_securite INTEGER;
+ALTER TABLE audit_annuel ADD COLUMN m3_note_limites INTEGER;
+ALTER TABLE audit_annuel ADD COLUMN m3_note_etancheite INTEGER;
+ALTER TABLE audit_annuel ADD COLUMN m3_note_mutualite INTEGER;
+ALTER TABLE audit_annuel ADD COLUMN m3_oui_complaisance1 TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m3_oui_complaisance2 TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m3_arbitrage_nourrir TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m3_arbitrage_reguler TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m4_note_locus INTEGER;
+ALTER TABLE audit_annuel ADD COLUMN m4_note_autocompassion INTEGER;
+ALTER TABLE audit_annuel ADD COLUMN m4_note_courage INTEGER;
+ALTER TABLE audit_annuel ADD COLUMN m4_note_plasticite INTEGER;
+ALTER TABLE audit_annuel ADD COLUMN m4_fait_brut TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m4_interpretation_initiale TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m4_variable_controle TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m4_regle_systemique TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m5_autonomie_objectif TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m5_autonomie_indicateur TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m5_maitrise_objectif TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m5_maitrise_indicateur TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m5_contribution_objectif TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m5_contribution_indicateur TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m5_habitude_declencheur TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m5_habitude_comportement TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m5_distraction_declencheur TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m5_distraction_comportement TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m5_regulation_declencheur TEXT;
+ALTER TABLE audit_annuel ADD COLUMN m5_regulation_comportement TEXT;
+ALTER TABLE audit_annuel ADD COLUMN objectif_m1 INTEGER;
+ALTER TABLE audit_annuel ADD COLUMN objectif_m2 INTEGER;
+ALTER TABLE audit_annuel ADD COLUMN objectif_m3 INTEGER;
+ALTER TABLE audit_annuel ADD COLUMN objectif_m4 INTEGER;
+
+ALTER TABLE npt_notes ADD COLUMN source TEXT NOT NULL DEFAULT 'manual';
+ALTER TABLE semaines_audit ADD COLUMN hrv_delta_s1 REAL;
+ALTER TABLE semaines_audit RENAME COLUMN friction_score TO score_semaine;
+ALTER TABLE objectifs ADD COLUMN priorite INTEGER DEFAULT 1;
+ALTER TABLE positions_investissement ADD COLUMN frais_pct REAL;
+ALTER TABLE focus_sessions ADD COLUMN piliers TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ws_intervals ON workout_sessions(intervals_activity_id);
