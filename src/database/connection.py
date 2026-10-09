@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import os
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parents[2] / "db" / "dynastasie.db"
+# Base par défaut ; `DYNASTASIS_DB` permet d'en utiliser une autre (ex. base de démo).
+DEFAULT_DB_PATH = Path(__file__).resolve().parents[2] / "db" / "dynastasie.db"
+DB_PATH = Path(os.environ.get("DYNASTASIS_DB") or DEFAULT_DB_PATH)
 SCHEMA_PATH = Path(__file__).resolve().parents[2] / "db" / "schema.sql"
 MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "db" / "migrations"
 

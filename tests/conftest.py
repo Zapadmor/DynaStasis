@@ -41,3 +41,22 @@ def conn(db):
     c.execute("PRAGMA foreign_keys = ON;")
     yield c
     c.close()
+
+
+@pytest.fixture(scope="session")
+def _demo_modele(tmp_path_factory):
+    """Base de démo générée une seule fois, copiée pour chaque test."""
+    from src.core.demo import seed_demo
+
+    return seed_demo(tmp_path_factory.mktemp("demo") / "demo.db")
+
+
+@pytest.fixture
+def demo_db(tmp_path, monkeypatch, _demo_modele):
+    """Chemin d'une copie de la base de démo, branchée comme base courante."""
+    with sqlite3.connect(_demo_modele) as c:
+        c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    path = tmp_path / "demo.db"
+    shutil.copy(_demo_modele, path)
+    monkeypatch.setattr(connection, "DB_PATH", path)
+    return path

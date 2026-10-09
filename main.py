@@ -8,12 +8,14 @@ Commandes :
   finance        Résumé financier depuis les exports CSV/XLSX
   strava-auth    Autorisation OAuth Strava (scope activity:read_all)
   init-db        Initialise la base de données SQLite
+  seed-demo      Crée une base de démonstration fictive (--db chemin, --base-reelle)
   profile        Contenu de profil en base : `profile export [fichier]` / `profile import fichier.json`
   app            Lance l'interface Streamlit (défaut)
 """
 
 from __future__ import annotations
 
+import os
 import sys
 
 
@@ -54,6 +56,35 @@ def main() -> int:
         init_db()
         return 0
 
+    if cmd == "seed-demo":
+        import argparse
+
+        from src.core.demo import DEFAULT_DEMO_DB, DemoSeedError, seed_demo
+
+        parser = argparse.ArgumentParser(
+            prog="main.py seed-demo", description="Base de démonstration (données fictives)."
+        )
+        parser.add_argument(
+            "--db",
+            help=f"base cible (défaut : $DYNASTASIS_DB ou {DEFAULT_DEMO_DB.name} dans data/demo/)",
+        )
+        parser.add_argument(
+            "--base-reelle",
+            action="store_true",
+            help="autorise l'écrasement de db/dynastasie.db (DESTRUCTIF)",
+        )
+        args = parser.parse_args(sys.argv[2:])
+        try:
+            path = seed_demo(
+                args.db or os.environ.get("DYNASTASIS_DB"), allow_real_db=args.base_reelle
+            )
+        except DemoSeedError as exc:
+            print(f"Erreur : {exc}", file=sys.stderr)
+            return 1
+        print(f"[démo] Base créée : {path}")
+        print(f"       Lancer l'app : DYNASTASIS_DB={path} python main.py app")
+        return 0
+
     if cmd == "profile":
         from src.core.profile import export_profile, import_profile
 
@@ -67,7 +98,6 @@ def main() -> int:
         return 1
 
     if cmd == "app":
-        import os
         import subprocess
         from pathlib import Path
 
@@ -79,7 +109,7 @@ def main() -> int:
         )
 
     print(
-        f"Commande inconnue : {cmd}\nUsage: python main.py [vigueur|logos|finance|init-db|profile|app]"
+        f"Commande inconnue : {cmd}\nUsage: python main.py [vigueur|logos|finance|init-db|seed-demo|profile|app]"
     )
     return 1
 
