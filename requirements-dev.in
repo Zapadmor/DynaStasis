@@ -4,5 +4,6 @@
 pip-tools
 pre-commit
 pytest
+pytest-cov
 ruff
 vulture

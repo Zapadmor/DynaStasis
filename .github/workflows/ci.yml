@@ -32,7 +32,7 @@ jobs:
       - name: Dead code
         run: vulture src bots main.py --min-confidence 80
       - name: Tests
-        run: pytest -q
+        run: pytest -q --cov --cov-report=term-missing
       - name: Lockfiles à jour
         run: |
           pip-compile -q --strip-extras --no-header --annotation-style=line -o /tmp/req.txt requirements.in

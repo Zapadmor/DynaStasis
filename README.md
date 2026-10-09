@@ -155,6 +155,15 @@ Clés utilisées : `logos.plan_carriere`, `logos.cursus_titre`, `vigueur.macro_c
 
 ---
 
+## Tests
+
+```bash
+pytest -q                 # suite complète (bases SQLite temporaires)
+pytest -q --cov           # avec couverture de src/ (seuil minimal dans pyproject.toml)
+```
+
+---
+
 ## Interface Streamlit
 
 ```bash

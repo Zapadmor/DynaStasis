@@ -35,3 +35,11 @@ paths = ["src", "bots", "main.py"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[tool.coverage.run]
+source = ["src"]
+
+[tool.coverage.report]
+# Seuil bas au départ : les vues Streamlit ne sont pas encore testées (cf. plan de sprints)
+fail_under = 7
+skip_covered = true
