@@ -16,7 +16,7 @@ jsonschema==4.26.0        # via altair
 jsonschema-specifications==2025.9.1  # via jsonschema
 markupsafe==3.0.4         # via flask, jinja2, werkzeug
 narwhals==2.26.0          # via altair, plotly
-numpy==1.26.4             # via -r requirements.in, pandas, pydeck, streamlit
+numpy==2.5.3              # via -r requirements.in, pandas, pydeck, streamlit
 openpyxl==3.1.5           # via -r requirements.in
 packaging==26.3           # via altair, plotly, streamlit
 pandas==3.0.6             # via -r requirements.in, streamlit
