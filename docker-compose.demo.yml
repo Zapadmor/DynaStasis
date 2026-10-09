@@ -1,0 +1,17 @@
+# Démonstration : base fictive générée au démarrage, aucune donnée ni secret requis.
+#   docker compose -f docker-compose.demo.yml up --build
+# Accès : http://localhost:8502 — la base est jetée avec le conteneur.
+services:
+  demo:
+    build: .
+    container_name: dynastasie-demo
+    user: "${DYNASTASIS_UID:-1000}:${DYNASTASIS_GID:-1000}"
+    ports:
+      - "8502:8501"
+    environment:
+      DYNASTASIS_DB: /tmp/demo/dynastasie-demo.db
+      HOME: /tmp
+    command:
+      - sh
+      - -c
+      - python main.py seed-demo && streamlit run src/app/ui_main.py --server.headless true

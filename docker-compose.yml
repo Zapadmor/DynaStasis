@@ -13,8 +13,10 @@ services:
     environment:
       DYNASTASIS_DB: /app/dbdata/dynastasie.db
     # Secrets : fichier hors dépôt (chmod 600), jamais monté dans l'image
+    # Fichier facultatif : sans lui, l'application tourne sans aucune source externe.
     env_file:
-      - ${DYNASTASIS_ENV_FILE:-${HOME}/.config/dynastasie/secrets.env}
+      - path: ${DYNASTASIS_ENV_FILE:-${HOME}/.config/dynastasie/secrets.env}
+        required: false
     volumes:
       - ./data:/app/data
       # La base vit dans un dossier dédié : ne PAS monter ./db sur /app/db, sinon le schéma et
