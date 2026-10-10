@@ -1,11 +1,21 @@
 # Démonstration : base fictive générée au démarrage, aucune donnée ni secret requis.
 #   docker compose -f docker-compose.demo.yml up --build
 # Accès : http://localhost:8502 — la base est jetée avec le conteneur.
+name: dynastasis-demo
+
 services:
   demo:
-    build: .
+    build:
+      context: .
+      target: ${DYNASTASIS_TARGET:-runtime}
     container_name: dynastasie-demo
     user: "${DYNASTASIS_UID:-1000}:${DYNASTASIS_GID:-1000}"
+    mem_limit: 1g
+    cpus: 2
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     ports:
       - "8502:8501"
     environment:

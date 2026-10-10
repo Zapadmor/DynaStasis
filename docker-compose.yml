@@ -1,3 +1,6 @@
+# Nom de projet explicite : il ne dépend plus du nom du dossier de travail.
+name: dynastasis
+
 services:
   # ── Streamlit app — interface DynaStasie (port 8501) ──────────────────────
   # Accès local : http://localhost:8501
@@ -7,7 +10,7 @@ services:
       # runtime (défaut) ou adb : ajoute adb pour la synchro du temps d'écran Android
       target: ${DYNASTASIS_TARGET:-runtime}
     container_name: dynastasie-streamlit
-    restart: always
+    restart: unless-stopped
     user: "${DYNASTASIS_UID:-1000}:${DYNASTASIS_GID:-1000}"
     ports:
       - "8501:8501"
@@ -29,3 +32,28 @@ services:
       - ./.streamlit/config.toml:/app/.streamlit/config.toml
       - ./.streamlit/themes:/app/.streamlit/themes
     command: ["streamlit", "run", "src/app/ui_main.py"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=3)",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 3
+    # Limites raisonnables pour un usage personnel (Streamlit + SQLite)
+    mem_limit: ${DYNASTASIS_MEM_LIMIT:-1g}
+    cpus: ${DYNASTASIS_CPUS:-2}
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
