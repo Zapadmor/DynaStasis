@@ -17,3 +17,6 @@ node_modules/
 # Configuration utilisateur et fichiers SQLite annexes
 config/user.toml
 db/*.db-*
+
+# Mesure de couverture
+.coverage

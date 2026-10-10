@@ -45,6 +45,9 @@ def main() -> int:
         if inconnues:
             print(f"Source(s) inconnue(s) : {', '.join(sorted(inconnues))}", file=sys.stderr)
             return 2
+        from src.database.connection import init_db
+
+        init_db()  # idempotent : base fraîche (timer lancé avant la première ouverture de l'app)
         return exit_code(run_all(only=only, timeout=args.timeout))
 
     if cmd == "vigueur":
