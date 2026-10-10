@@ -34,7 +34,7 @@ Après une absence : `python main.py vigueur --full --lookback 365`.
 
 ### Temps d'écran Android (ADB)
 
-Activez le *Débogage sans fil* ([documentation Android](https://developer.android.com/tools/adb#connect-to-a-device-over-wi-fi)), renseignez `SAMSUNG_ADB_HOST` (adresse IP du téléphone) et `SAMSUNG_ADB_PORT` (5555 par défaut), puis `python main.py logos`. `adb` doit être installé (inclus dans l'image Docker).
+Activez le *Débogage sans fil* ([documentation Android](https://developer.android.com/tools/adb#connect-to-a-device-over-wi-fi)), renseignez `SAMSUNG_ADB_HOST` (adresse IP du téléphone) et `SAMSUNG_ADB_PORT` (5555 par défaut), puis `python main.py logos`. `adb` doit être installé. L'image Docker par défaut ne l'inclut **pas** : construisez la variante `adb` avec `DYNASTASIS_TARGET=adb docker compose up -d --build` (ou `docker build --target adb .`). Sans `adb`, `main.py logos` l'indique et propose la saisie manuelle.
 
 **Sans téléphone** : `python main.py logos --manual` demande le temps d'écran total et les applications principales.
 

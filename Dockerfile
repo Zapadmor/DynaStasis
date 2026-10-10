@@ -8,8 +8,8 @@ RUN python -m venv /opt/venv
 COPY requirements.txt .
 RUN /opt/venv/bin/pip install -r requirements.txt
 
-# ── Étape 2 : image d'exécution (cible par défaut) ────────────────────────────
-FROM python:3.12-slim AS runtime
+# ── Étape 2 : socle d'exécution commun ────────────────────────────────────────
+FROM python:3.12-slim AS base
 ARG UID=1000
 ARG GID=1000
 ENV PYTHONUNBUFFERED=1 \
@@ -19,7 +19,7 @@ ENV PYTHONUNBUFFERED=1 \
     HOME=/home/dynastasie
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends adb tzdata \
+    && apt-get install -y --no-install-recommends tzdata \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid "${GID}" dynastasie \
     && useradd --uid "${UID}" --gid "${GID}" --home-dir "${HOME}" --create-home dynastasie \
@@ -42,3 +42,15 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=3)"
 
 CMD ["streamlit", "run", "src/app/ui_main.py"]
+
+# ── Cible `adb` : ajoute adb pour la synchronisation du temps d'écran Android ──
+#   docker build --target adb .
+FROM base AS adb
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends adb \
+    && rm -rf /var/lib/apt/lists/*
+USER dynastasie
+
+# ── Cible par défaut (dernière étape) : sans adb ──────────────────────────────
+FROM base AS runtime

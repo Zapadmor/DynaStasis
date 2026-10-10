@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -101,6 +102,11 @@ def _resolve_app_name(package: str) -> str:
 
 class AdbClient:
     def __init__(self, host: str | None = None, port: int | None = None) -> None:
+        if shutil.which(_ADB_BIN) is None:
+            raise RuntimeError(
+                "`adb` est introuvable. Installez android-tools (apt install adb) ou, avec Docker, "
+                "reconstruisez l'image avec la cible adb : DYNASTASIS_TARGET=adb docker compose up -d --build."
+            )
         self.host = host or get_secret("samsung", "adb_host")
         if not self.host:
             raise RuntimeError(

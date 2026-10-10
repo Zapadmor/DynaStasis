@@ -2,7 +2,10 @@ services:
   # ── Streamlit app — interface DynaStasie (port 8501) ──────────────────────
   # Accès local : http://localhost:8501
   streamlit:
-    build: .
+    build:
+      context: .
+      # runtime (défaut) ou adb : ajoute adb pour la synchro du temps d'écran Android
+      target: ${DYNASTASIS_TARGET:-runtime}
     container_name: dynastasie-streamlit
     restart: always
     user: "${DYNASTASIS_UID:-1000}:${DYNASTASIS_GID:-1000}"

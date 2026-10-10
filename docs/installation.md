@@ -37,6 +37,7 @@ docker compose up -d --build                            # http://localhost:8501
 - `./config/` est monté en lecture seule : `config/user.toml` y est lu.
 - Si votre utilisateur n'a pas l'UID 1000 : `DYNASTASIS_UID=$(id -u) DYNASTASIS_GID=$(id -g) docker compose up -d`.
 - Pour voir la démo dans ce conteneur-là (base vide au départ) : `docker compose run --rm streamlit python main.py seed-demo --db /app/dbdata/dynastasie.db` avant `up`. La commande refuse d'écraser une base qui contient déjà vos données.
+- `adb` (temps d'écran Android) n'est pas dans l'image par défaut : `DYNASTASIS_TARGET=adb docker compose up -d --build` construit la variante qui l'inclut (voir [configuration](configuration.md#temps-décran-android-adb)). Variable à placer dans `.env` pour la conserver.
 - Mise à jour : `git pull && docker compose up -d --build`. Les migrations de base s'appliquent au démarrage.
 
 ## Local
