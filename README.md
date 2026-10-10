@@ -24,6 +24,16 @@ docker compose -f docker-compose.demo.yml up --build
 
 Ouvrez <http://localhost:8502>. La base de démo est créée au démarrage et jetée avec le conteneur.
 
+### Image publiée (sans cloner)
+
+Les images sont publiées sur GitHub Container Registry (`latest` suit `main`, les versions portent le tag `vX.Y.Z`, la variante avec `adb` le suffixe `-adb`) :
+
+```bash
+docker run --rm -p 8502:8501 -e DYNASTASIS_DB=/tmp/demo/dynastasie-demo.db \
+  ghcr.io/zapadmor/dynastasis:latest \
+  sh -c "python main.py seed-demo && streamlit run src/app/ui_main.py --server.headless true"
+```
+
 ### En local (Python 3.12)
 
 ```bash
