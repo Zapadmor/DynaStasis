@@ -52,3 +52,26 @@ def test_historique_journal_avec_semaine_gelee(db, caplog):
     assert not at.exception
     (df,) = [e.value for e in at.dataframe]
     assert sorted(df["Score"].dropna()) == ["55", "freeze"]
+
+
+def test_systeme_affiche_le_statut_des_sources(db):
+    import sqlite3
+
+    with sqlite3.connect(db) as c:
+        c.execute(
+            "INSERT INTO sync_checkpoints (source, statut, last_success_at, last_error_at,"
+            " last_error, last_duration_s) VALUES ('intervals', 'erreur', '2026-10-09 07:00:00',"
+            " '2026-10-10 07:00:00', 'Missing secret', 1.5)"
+        )
+
+    def app():
+        from src.app.views import systeme
+
+        systeme._render_sync_status()
+
+    at = AppTest.from_function(app, default_timeout=60).run()
+    assert not at.exception
+    (df,) = [e.value for e in at.dataframe]
+    ligne = df[df["Source"] == "intervals"].iloc[0]
+    assert ligne["Statut"] == "Erreur" and "Missing secret" in ligne["Dernière erreur"]
+    assert set(df["Source"]) == {"intervals", "strava", "logos", "finance"}

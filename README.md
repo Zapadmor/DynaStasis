@@ -79,7 +79,8 @@ Le détail est dans [docs/configuration.md](docs/configuration.md).
 | `python main.py app` | lance l'interface (défaut) |
 | `python main.py seed-demo [--db chemin]` | crée la base de démonstration |
 | `python main.py init-db` | crée / migre la base |
-| `python main.py vigueur [--full --lookback N]` | synchronise Intervals.icu et Strava |
+| `python main.py sync [--only a,b] [--timeout N]` | synchronise chaque source configurée (Intervals.icu, Strava, ADB, finance), isolées ; code de retour 1 si l'une échoue |
+| `python main.py vigueur [--full --lookback N] [--only intervals\|strava]` | synchronise Intervals.icu et Strava |
 | `python main.py logos [--manual]` | temps d'écran (ADB ou saisie manuelle) |
 | `python main.py finance` | résumé financier depuis `data/inbox/` |
 | `python main.py strava-auth` | autorisation OAuth Strava |

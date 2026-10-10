@@ -313,7 +313,68 @@ def _render_manual_week_override() -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+_STATUT_LIBELLES = {
+    "ok": "OK",
+    "erreur": "Erreur",
+    "delai": "Délai dépassé",
+    "non_configure": "Non configurée",
+}
+
+
+def _render_sync_status() -> None:
+    """État par source (dernière réussite, dernière erreur, durée) + synchronisation globale."""
+    st.markdown("### État des sources")
+    from src.core.sync_runner import default_sources, exit_code, run_all  # noqa: PLC0415
+
+    with db_session() as conn:
+        rows = {}
+        if _table_exists(conn, "sync_checkpoints"):
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(sync_checkpoints)")}
+            if "statut" in cols:
+                rows = {
+                    r["source"]: dict(r) for r in conn.execute("SELECT * FROM sync_checkpoints")
+                }
+
+    table = []
+    for src in default_sources():
+        r = rows.get(src.key, {})
+        table.append(
+            {
+                "Source": src.key,
+                "Statut": _STATUT_LIBELLES.get(r.get("statut"), "Jamais lancée"),
+                "Dernière réussite": r.get("last_success_at") or "—",
+                "Dernière erreur": (
+                    f"{r['last_error_at']} — {(r.get('last_error') or '')[-120:]}"
+                    if r.get("last_error_at")
+                    else "—"
+                ),
+                "Durée (s)": r.get("last_duration_s"),
+            }
+        )
+    st.dataframe(table, use_container_width=True, hide_index=True)
+
+    if st.button("Synchroniser toutes les sources configurées", key="sync_all"):
+        with st.spinner("Synchronisation en cours (chaque source est isolée)…"):
+            results = run_all()
+        actives = [r for r in results if r.status != "non_configure"]
+        if not actives:
+            st.info("Aucune source configurée : rien à synchroniser (voir docs/configuration.md).")
+        elif exit_code(results):
+            st.error(
+                "Échec : "
+                + ", ".join(
+                    f"{r.key} ({_STATUT_LIBELLES.get(r.status, r.status)})"
+                    for r in actives
+                    if r.failed
+                )
+            )
+        else:
+            st.success(f"{len(actives)} source(s) synchronisée(s).")
+    st.markdown("---")
+
+
 def _render_sync() -> None:
+    _render_sync_status()
     st.markdown("### Synchronisation des données")
 
     col_v, col_l, col_f = st.columns(3, gap="large")

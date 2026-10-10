@@ -11,6 +11,8 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Pas
 - Migrations `.py` (`apply(conn)`) en plus des migrations SQL.
 - Documentation publique : README, `docs/` (installation, configuration, piliers, architecture, FAQ), CONTRIBUTING.
 
+- `python main.py sync` : lance chaque source configurée dans un sous-processus isolé (délai, code de retour agrégé), journal JSON dans `data/logs/sync.log`, statut par source (`sync_checkpoints`, `logs_systeme`) affiché dans *Système → Synchronisation* (migration 005).
+
 ### Modifié
 - Les modes `ecole` / `entreprise` deviennent des codes configurables (migration 004 : conversion vers `ecole` / `entreprise`, levée des contraintes `CHECK`).
 - Le critère propre à l'auteur devient le critère générique « engagement » : tag `FORGE_ENGAGEMENT`, colonnes `focus_engagement_min`, `jours_engagement_semaine`, `forge_drill_engagement`, `plan_drill_engagement`, `forge_jours_engagement_mois` (migration 004).

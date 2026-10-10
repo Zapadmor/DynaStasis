@@ -20,6 +20,7 @@
 |---|---|
 | `main.py` | orchestrateur CLI |
 | `bots/` | scripts de synchronisation (`vigueur`, `logos`) |
+| `src/core/sync_runner.py` | orchestre les sources (`main.py sync`) : un sous-processus par source, délai, statut en base, journal JSON |
 | `src/collectors/` | clients Intervals.icu, Strava, ADB, finance, journal de séances |
 | `src/core/` | règles métier : `system_engine` (semaines, cascade), `focus_manager`, `habit_manager`, `projets`, `profile`, `user_config`, `tz`, `demo` |
 | `src/app/` | interface : `ui_main.py` (navigation), `components.py` (barre latérale, thème), `views/` (une page par pilier) |

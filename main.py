@@ -2,7 +2,8 @@
 DynaStasie OS — Orchestrateur CLI
 
 Commandes :
-  vigueur        Sync Intervals.icu + Strava PRs → SQLite
+  sync           Toutes les sources configurées, isolées (--only intervals,strava,logos,finance ; --timeout N)
+  vigueur        Sync Intervals.icu + Strava PRs → SQLite (--only intervals|strava)
   logos          Sync temps écran Samsung ADB → SQLite
                    --manual : saisie manuelle du temps d'écran sans ADB
   finance        Résumé financier depuis les exports CSV/XLSX
@@ -21,6 +22,30 @@ import sys
 
 def main() -> int:
     cmd = sys.argv[1] if len(sys.argv) > 1 else "app"
+
+    if cmd == "sync":
+        import argparse
+
+        from src.core.sync_runner import default_sources, exit_code, run_all
+
+        parser = argparse.ArgumentParser(
+            prog="main.py sync",
+            description="Synchronise chaque source configurée ; l'échec de l'une ne bloque pas les autres.",
+        )
+        parser.add_argument(
+            "--only",
+            help="sources à lancer, séparées par des virgules ("
+            + ", ".join(s.key for s in default_sources())
+            + ")",
+        )
+        parser.add_argument("--timeout", type=int, help="délai maximal par source, en secondes")
+        args = parser.parse_args(sys.argv[2:])
+        only = [k.strip() for k in args.only.split(",") if k.strip()] if args.only else None
+        inconnues = set(only or []) - {s.key for s in default_sources()}
+        if inconnues:
+            print(f"Source(s) inconnue(s) : {', '.join(sorted(inconnues))}", file=sys.stderr)
+            return 2
+        return exit_code(run_all(only=only, timeout=args.timeout))
 
     if cmd == "vigueur":
         sys.argv = [sys.argv[0]] + sys.argv[2:]
@@ -109,7 +134,7 @@ def main() -> int:
         )
 
     print(
-        f"Commande inconnue : {cmd}\nUsage: python main.py [vigueur|logos|finance|init-db|seed-demo|profile|app]"
+        f"Commande inconnue : {cmd}\nUsage: python main.py [sync|vigueur|logos|finance|init-db|seed-demo|profile|app]"
     )
     return 1
 

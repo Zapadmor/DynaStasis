@@ -140,7 +140,8 @@ def _save_checkpoint(source: str) -> None:
         print(f"[WARN] Checkpoint {source} non sauvegardé : {exc}")
 
 
-def run(lookback_days: int = 180, incremental: bool = True) -> dict:
+def run_intervals(lookback_days: int = 180, incremental: bool = True) -> dict:
+    """Intervals.icu (wellness + activités) → SQLite. Lève IntervalsAPIError si la source échoue."""
     client = IntervalsClient()
 
     # ── Résolution de la fenêtre temporelle ──────────────────────
@@ -172,18 +173,7 @@ def run(lookback_days: int = 180, incremental: bool = True) -> dict:
     except IntervalsAPIError as exc:
         print(f"[WARN] Activities sync échoué : {exc}")
 
-    # ── 3. Strava Personal Records → SQLite ─────────────────────
-    try:
-        print("Syncing Strava Personal Records (best_efforts)...")
-        strava = StravaClient()
-        n = strava.sync_personal_records(lookback_years=3, incremental=True)
-        print(f"[DB] {n} record(s) Strava mis à jour.")
-    except StravaAPIError as exc:
-        print(f"[WARN] Strava PR sync échoué : {exc}")
-    except Exception as exc:
-        print(f"[WARN] Strava PR sync erreur inattendue : {exc}")
-
-    # ── 4. Résumé complet de la dernière entrée ──────────────────
+    # ── 3. Résumé complet de la dernière entrée ──────────────────
     metrics = client.get_latest_metrics()
 
     with db_session() as conn:
@@ -207,11 +197,41 @@ def run(lookback_days: int = 180, incremental: bool = True) -> dict:
             f"  Sport     TSS={r['tss']}  Distance={r['distance_km']} km  Durée={r['moving_time_min']} min"
         )
 
-    # ── 5. Cascade rollups + checkpoint ─────────────────────────
+    # ── 4. Cascade rollups + checkpoint ─────────────────────────
     _cascade_current_weeks()
     _save_checkpoint("intervals.icu")
 
     return {"metrics": metrics, "synced_rows": len(wellness_rows)}
+
+
+def run_strava() -> int:
+    """Records personnels Strava (best_efforts) → SQLite. Lève StravaAPIError si la source échoue."""
+    print("Syncing Strava Personal Records (best_efforts)...")
+    n = StravaClient().sync_personal_records(lookback_years=3, incremental=True)
+    print(f"[DB] {n} record(s) Strava mis à jour.")
+    return n
+
+
+def run(lookback_days: int = 180, incremental: bool = True) -> dict:
+    """Intervals.icu puis Strava ; l'échec de l'un n'empêche pas l'autre.
+
+    Strava reste un complément (avertissement seul) ; une erreur Intervals.icu est
+    levée une fois Strava tenté."""
+    intervals_error: IntervalsAPIError | None = None
+    result: dict = {"metrics": {}, "synced_rows": 0}
+    try:
+        result = run_intervals(lookback_days=lookback_days, incremental=incremental)
+    except IntervalsAPIError as exc:
+        intervals_error = exc
+    try:
+        run_strava()
+    except StravaAPIError as exc:
+        print(f"[WARN] Strava PR sync échoué : {exc}")
+    except Exception as exc:
+        print(f"[WARN] Strava PR sync erreur inattendue : {exc}")
+    if intervals_error:
+        raise intervals_error
+    return result
 
 
 def main() -> int:
@@ -229,15 +249,25 @@ def main() -> int:
         default=180,
         help="Jours d'historique pour un sync complet (défaut : 180). Ignoré en mode incrémental.",
     )
+    parser.add_argument(
+        "--only",
+        choices=("intervals", "strava"),
+        help="Ne synchronise qu'une source (utilisé par `main.py sync`).",
+    )
     args = parser.parse_args()
 
     try:
-        run(
-            lookback_days=args.lookback,
-            incremental=not args.full,
-        )
+        if args.only == "strava":
+            run_strava()
+        elif args.only == "intervals":
+            run_intervals(lookback_days=args.lookback, incremental=not args.full)
+        else:
+            run(lookback_days=args.lookback, incremental=not args.full)
     except IntervalsAPIError as exc:
         print(f"Erreur Intervals.icu : {exc}", file=sys.stderr)
+        return 1
+    except StravaAPIError as exc:
+        print(f"Erreur Strava : {exc}", file=sys.stderr)
         return 1
     return 0
 
