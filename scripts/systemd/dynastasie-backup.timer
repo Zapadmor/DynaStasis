@@ -1,0 +1,11 @@
+[Unit]
+Description=DynaStasie — sauvegarde quotidienne de la base
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+# Portable éteint à l'heure prévue : sauvegarde au prochain démarrage
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

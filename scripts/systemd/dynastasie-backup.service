@@ -1,0 +1,12 @@
+[Unit]
+Description=DynaStasie — sauvegarde de la base SQLite
+
+[Service]
+Type=oneshot
+User=__USER__
+WorkingDirectory=__WORKDIR__
+# 14 sauvegardes conservées dans ~/.local/share/dynastasie/db-backups/
+ExecStart=/usr/bin/python3 __WORKDIR__/scripts/backup_db.py --keep 14
+SyslogIdentifier=dynastasie-backup
+StandardOutput=journal
+StandardError=journal

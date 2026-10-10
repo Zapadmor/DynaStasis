@@ -1,5 +1,5 @@
 [Unit]
-Description=DynaStasie — sync Intervals.icu + cascade rollups
+Description=DynaStasie — synchronisation des sources (Intervals.icu, Strava, ADB, finance)
 After=network-online.target docker.service
 Wants=network-online.target
 
@@ -7,8 +7,11 @@ Wants=network-online.target
 Type=oneshot
 User=__USER__
 WorkingDirectory=__WORKDIR__
-ExecStart=docker exec dynastasie-streamlit python main.py vigueur
+# Une source en échec n'arrête pas les autres ; le code de retour vaut 1 si l'une a échoué.
+# Conteneur arrêté : le script sort en 0 (voir scripts/sync_conteneur.sh).
+ExecStart=/usr/bin/env bash __WORKDIR__/scripts/sync_conteneur.sh
+SyslogIdentifier=dynastasie-sync
 StandardOutput=journal
 StandardError=journal
-# Laisser jusqu'à 3 min pour que la connexion réseau soit stable après réveil
-TimeoutStartSec=180
+# Quatre sources, chacune avec son propre délai (jusqu'à 3 min) + réseau instable après réveil
+TimeoutStartSec=900

@@ -10,10 +10,11 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Pas
 - `config/user.toml` (modèle `user.toml.example`) : fuseau horaire, piliers actifs, modes, seuils et poids du score, critère « engagement » (libellé et activation), widget externe facultatif.
 - Migrations `.py` (`apply(conn)`) en plus des migrations SQL.
 - Documentation publique : README, `docs/` (installation, configuration, piliers, architecture, FAQ), CONTRIBUTING.
-
 - `python main.py sync` : lance chaque source configurée dans un sous-processus isolé (délai, code de retour agrégé), journal JSON dans `data/logs/sync.log`, statut par source (`sync_checkpoints`, `logs_systeme`) affiché dans *Système → Synchronisation* (migration 005).
+- `scripts/backup_db.py` et timer systemd `dynastasie-backup` : sauvegarde quotidienne rotative de la base ; documentation de restauration.
 
 ### Modifié
+- Le timer systemd lance `main.py sync` (toutes les sources) via `scripts/sync_conteneur.sh`, qui ne fait pas échouer l'unité quand le conteneur est arrêté.
 - Les modes `ecole` / `entreprise` deviennent des codes configurables (migration 004 : conversion vers `ecole` / `entreprise`, levée des contraintes `CHECK`).
 - Le critère propre à l'auteur devient le critère générique « engagement » : tag `FORGE_ENGAGEMENT`, colonnes `focus_engagement_min`, `jours_engagement_semaine`, `forge_drill_engagement`, `plan_drill_engagement`, `forge_jours_engagement_mois` (migration 004).
 - Les seuils du score ne sont plus codés dans les vues SQL : ils viennent de `score_config` / `modes_config`.

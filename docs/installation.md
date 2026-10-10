@@ -56,17 +56,41 @@ python main.py app                         # http://localhost:8501
 
 Pour les outils de développement : `pip install -r requirements-dev.txt` (voir [CONTRIBUTING](../CONTRIBUTING.md)).
 
-## Sauvegarde
+## Synchronisation et logs
 
-La base est un seul fichier SQLite. Copiez `db/dynastasie.db` à froid, ou : `sqlite3 db/dynastasie.db ".backup sauvegarde.db"`. Le contenu de profil (textes, plans) s'exporte aussi : `python main.py profile export profil.json`.
+`python main.py sync` lance chaque source configurée (Intervals.icu, Strava, ADB, exports bancaires) dans un processus à part, avec un délai maximal : **une source en échec n'empêche pas les autres**. Le code de retour vaut 1 si l'une a échoué, 0 sinon (y compris quand aucune source n'est configurée). `--only intervals,strava` limite les sources, `--timeout N` fixe le délai (secondes).
 
-## Synchronisation planifiée (Linux, facultatif)
+- Journal structuré (une ligne JSON par évènement) sur la sortie standard et dans `data/logs/sync.log` (rotation 1 Mo × 3).
+- Statut par source (dernière réussite, dernière erreur, durée) : page *Système → Synchronisation*, tables `sync_checkpoints` et `logs_systeme`.
 
-`scripts/systemd/install.sh` installe un timer systemd qui lance `python main.py vigueur` dans le conteneur toutes les 6 heures :
+## Sauvegarde et restauration
+
+La base est un seul fichier SQLite. Pour une copie manuelle cohérente : `python3 scripts/backup_db.py` (copie rotative vérifiée dans `~/.local/share/dynastasie/db-backups/`, 14 conservées ; `--db`, `--dest`, `--keep` pour changer). Le contenu de profil (textes, plans) s'exporte aussi : `python main.py profile export profil.json`.
+
+**Restaurer** :
 
 ```bash
-sudo bash scripts/systemd/install.sh      # sudo : écrit dans /etc/systemd/system
+docker compose stop streamlit                       # ou arrêtez l'application locale
+mv db/dynastasie.db db/dynastasie.db.avant-restauration
+rm -f db/dynastasie.db-wal db/dynastasie.db-shm    # fichiers annexes de l'ancienne base
+cp ~/.local/share/dynastasie/db-backups/dynastasie-AAAAMMJJ-HHMMSS.db db/dynastasie.db
+docker compose start streamlit                      # les migrations manquantes s'appliquent au démarrage
+```
+
+## Planification (Linux, facultatif)
+
+`scripts/systemd/install.sh` installe deux timers systemd :
+
+| Timer | Fréquence | Action |
+|---|---|---|
+| `dynastasie-sync` | 01h, 07h, 13h, 19h | `docker exec dynastasie-streamlit python main.py sync` (via `scripts/sync_conteneur.sh` : conteneur arrêté → journalisé, sans échec) |
+| `dynastasie-backup` | tous les jours à 03h30 | `scripts/backup_db.py --keep 14` |
+
+```bash
+sudo bash scripts/systemd/install.sh      # sudo : écrit dans /etc/systemd/system ; relancer après une mise à jour du dépôt
 sudo bash scripts/systemd/uninstall.sh
+journalctl -u dynastasie-sync -u dynastasie-backup --since today    # journaux
+systemctl list-timers 'dynastasie-*'
 ```
 
 ## Dépannage
