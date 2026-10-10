@@ -1,5 +1,7 @@
 # Jamais dans l'image : données perso, secrets, documents privés
 .git/
+.github/
+.claude/
 env/
 node_modules/
 __pycache__/
@@ -7,6 +9,8 @@ __pycache__/
 *.pyc
 .ruff_cache/
 .pytest_cache/
+.coverage
+.pre-commit-config.yaml
 
 .env
 .env.*
@@ -18,7 +22,15 @@ data/
 db/*.db
 db/*.db-*
 db/*.bak*
-docs/private/
+docs/
 config/user.toml
 archives/
 *.log
+
+# Inutile à l'exécution
+tests/
+scripts/systemd/
+requirements-dev.*
+requirements.in
+Dockerfile
+docker-compose*.yml
