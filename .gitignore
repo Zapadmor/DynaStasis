@@ -20,3 +20,6 @@ db/*.db-*
 
 # Mesure de couverture
 .coverage
+
+# Réglages locaux Claude Code
+.claude/
