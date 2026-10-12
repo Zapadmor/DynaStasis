@@ -4,9 +4,9 @@ from datetime import datetime
 
 from src import pillars
 from src.core import user_config
-from src.core.system_engine import get_or_create_week_id, trigger_cascade_week
 from src.core.tz import tz
 from src.database.connection import db_session
+from src.services.semaines import get_or_create_week_id, trigger_cascade_week
 
 # Piliers "parents" — utilisés pour la répartition agrégée (sidebar, SYSTÈME de l'audit).
 PILIERS = pillars.keys()

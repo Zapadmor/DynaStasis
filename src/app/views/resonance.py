@@ -479,7 +479,7 @@ def _sync_semaine_metrics(week_id: int) -> dict:
     Agrège vigueur_entries + screen_sessions → semaines_audit, puis déclenche
     la cascade habitudes/focus/score. Retourne les métriques consolidées.
     """
-    from src.core.system_engine import trigger_cascade_week
+    from src.services.semaines import trigger_cascade_week
 
     def _r2(v):
         return round(float(v), 2) if v is not None else None
@@ -1220,7 +1220,7 @@ def _render_audit_hebdo(current_week: dict | None) -> None:
                     (social_val, selected_id),
                 )
                 conn.commit()
-            from src.core.system_engine import trigger_cascade_week
+            from src.services.semaines import trigger_cascade_week
 
             trigger_cascade_week(selected_id)
             st.session_state.pop(_data_key, None)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from src.core.system_engine import get_or_create_week_id, trigger_cascade_week
 from src.database.connection import db_session
+from src.services.semaines import get_or_create_week_id, trigger_cascade_week
 
 
 def upsert_habit_log(

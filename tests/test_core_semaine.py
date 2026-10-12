@@ -1,4 +1,4 @@
-"""system_engine (semaine, gel, cascade), habit_manager et focus_manager."""
+"""services.semaines (semaine, gel, cascade), habit_manager et focus_manager."""
 
 from __future__ import annotations
 
@@ -6,8 +6,9 @@ from datetime import datetime
 
 import pytest
 
-from src.core import focus_manager, habit_manager, system_engine
+from src.core import focus_manager, habit_manager
 from src.database.connection import db_session
+from src.services import semaines
 
 
 def _semaine(week_id):
@@ -33,16 +34,16 @@ def _session(c, week_id, date, duree, piliers=None, num=None, **kw):
 
 
 def test_semaine_calee_sur_le_lundi_avec_libelle(db):
-    wid = system_engine.get_or_create_week_id("2026-03-05")  # jeudi
+    wid = semaines.get_or_create_week_id("2026-03-05")  # jeudi
     row = _semaine(wid)
     assert row["week_start"] == "2026-03-02"
     assert row["week_label"] == "Audit S10 – 02/03/2026"
 
 
 def test_semaine_idempotente_et_meme_id_pour_tous_les_jours(db):
-    ids = {system_engine.get_or_create_week_id(f"2026-03-0{d}") for d in range(2, 9)}
+    ids = {semaines.get_or_create_week_id(f"2026-03-0{d}") for d in range(2, 9)}
     assert len(ids) == 1
-    assert system_engine.get_or_create_week_id("2026-03-09") not in ids
+    assert semaines.get_or_create_week_id("2026-03-09") not in ids
 
 
 def test_mode_actif_depuis_sequences_mode_sinon_ecole(db):
@@ -51,8 +52,8 @@ def test_mode_actif_depuis_sequences_mode_sinon_ecole(db):
             "INSERT INTO sequences_mode (numero, lieu, date_debut, date_fin)"
             " VALUES (1, 'entreprise', '2026-03-02', '2026-03-13')"
         )
-    assert _semaine(system_engine.get_or_create_week_id("2026-03-04"))["mode_actif"] == "entreprise"
-    assert _semaine(system_engine.get_or_create_week_id("2026-03-16"))["mode_actif"] == "ecole"
+    assert _semaine(semaines.get_or_create_week_id("2026-03-04"))["mode_actif"] == "entreprise"
+    assert _semaine(semaines.get_or_create_week_id("2026-03-16"))["mode_actif"] == "ecole"
 
 
 # --- gel hebdomadaire --------------------------------------------------------------------
@@ -74,29 +75,27 @@ def test_semaine_creee_pendant_un_gel_est_marquee_gelee(db, debut, fin, gelee):
             "INSERT INTO system_freezes (date_debut, date_fin, raison) VALUES (?, ?, 'test')",
             (debut, fin),
         )
-    assert _semaine(system_engine.get_or_create_week_id("2026-03-03"))["is_frozen"] == gelee
+    assert _semaine(semaines.get_or_create_week_id("2026-03-03"))["is_frozen"] == gelee
 
 
 def test_gel_ajoute_apres_coup_ne_modifie_pas_une_semaine_existante(db):
-    wid = system_engine.get_or_create_week_id("2026-03-03")
+    wid = semaines.get_or_create_week_id("2026-03-03")
     with db_session() as c:
         c.execute(
             "INSERT INTO system_freezes (date_debut, date_fin, raison)"
             " VALUES ('2026-03-01', '2026-03-31', 'test')"
         )
-    assert _semaine(system_engine.get_or_create_week_id("2026-03-03"))["is_frozen"] == 0
-    assert wid == system_engine.get_or_create_week_id("2026-03-04")
+    assert _semaine(semaines.get_or_create_week_id("2026-03-03"))["is_frozen"] == 0
+    assert wid == semaines.get_or_create_week_id("2026-03-04")
 
 
 def test_semaine_gelee_exclue_de_la_reference_hrv(db):
-    ids = [
-        system_engine.get_or_create_week_id(d) for d in ("2026-02-16", "2026-02-23", "2026-03-02")
-    ]
+    ids = [semaines.get_or_create_week_id(d) for d in ("2026-02-16", "2026-02-23", "2026-03-02")]
     with db_session() as c:
         c.execute("UPDATE semaines_audit SET is_frozen = 1 WHERE id = ?", (ids[1],))
         for date, hrv in (("2026-02-16", 40), ("2026-02-23", 90), ("2026-03-02", 70)):
             c.execute("INSERT INTO vigueur_entries (date_entry, hrv) VALUES (?, ?)", (date, hrv))
-    system_engine.trigger_cascade_week(ids[2])
+    semaines.trigger_cascade_week(ids[2])
     assert _semaine(ids[2])["hrv_delta_s1"] == 30.0  # 70 - 40, la semaine gelée est sautée
 
 
@@ -104,7 +103,7 @@ def test_semaine_gelee_exclue_de_la_reference_hrv(db):
 
 
 def test_cascade_recalcule_focus_habitudes_et_score(db):
-    wid = system_engine.get_or_create_week_id("2026-03-02")
+    wid = semaines.get_or_create_week_id("2026-03-02")
     with db_session() as c:
         _session(c, wid, "2026-03-02", 60.0, "FORGE_ENGAGEMENT")
         _session(c, wid, "2026-03-03", 40.0, "FORGE_PRO,LOGOS")
@@ -115,7 +114,7 @@ def test_cascade_recalcule_focus_habitudes_et_score(db):
                 " bonne_recup_8h9h, sport_marche_45min) VALUES (?, ?, ?, ?, 1, ?)",
                 (d, wid, lecture, jeune, lecture),
             )
-    system_engine.trigger_cascade_week(wid)
+    semaines.trigger_cascade_week(wid)
     row = _semaine(wid)
     assert row["deep_focus_min"] == 120.0
     assert row["focus_engagement_min"] == 60.0
@@ -126,22 +125,22 @@ def test_cascade_recalcule_focus_habitudes_et_score(db):
 
 
 def test_cascade_sans_donnees_met_les_compteurs_a_zero(db):
-    wid = system_engine.get_or_create_week_id("2026-03-02")
-    system_engine.trigger_cascade_week(wid)
+    wid = semaines.get_or_create_week_id("2026-03-02")
+    semaines.trigger_cascade_week(wid)
     row = _semaine(wid)
     assert row["deep_focus_min"] == 0.0
     assert (row["nuits_bonne_recup"], row["sessions_lecture"]) == (0, 0)
 
 
 def test_cascade_calcule_le_delta_hrv(db):
-    prev = system_engine.get_or_create_week_id("2026-02-23")
-    wid = system_engine.get_or_create_week_id("2026-03-02")
+    prev = semaines.get_or_create_week_id("2026-02-23")
+    wid = semaines.get_or_create_week_id("2026-03-02")
     with db_session() as c:
         c.execute("INSERT INTO vigueur_entries (date_entry, hrv) VALUES ('2026-02-24', 60)")
         c.execute("INSERT INTO vigueur_entries (date_entry, hrv) VALUES ('2026-03-03', 67.34)")
-    system_engine.trigger_cascade_week(wid)
+    semaines.trigger_cascade_week(wid)
     assert _semaine(wid)["hrv_delta_s1"] == 7.3
-    system_engine.trigger_cascade_week(prev)
+    semaines.trigger_cascade_week(prev)
     assert _semaine(prev)["hrv_delta_s1"] is None
 
 
@@ -221,7 +220,7 @@ def test_demarrer_puis_arreter_une_session_calcule_la_duree(db, horloge):
     ok, msg = focus_manager.stop_focus_session()
     assert ok and "90.0" in msg
     assert focus_manager.get_active_session() is None
-    wid = system_engine.get_or_create_week_id("2026-03-03")
+    wid = semaines.get_or_create_week_id("2026-03-03")
     assert _semaine(wid)["deep_focus_min"] == 90.0
 
 
@@ -239,7 +238,7 @@ def test_arreter_sans_session_active(db, horloge):
 def test_duree_minimale_une_minute_et_numerotation(db, horloge):
     focus_manager.start_focus_session()
     focus_manager.stop_focus_session()  # même minute
-    wid = system_engine.get_or_create_week_id("2026-03-03")
+    wid = semaines.get_or_create_week_id("2026-03-03")
     assert focus_manager.get_week_sessions(wid)[0]["duree_min"] == 1.0
     horloge.now_value = datetime(2026, 3, 3, 11, 0)
     assert "#2" in focus_manager.start_focus_session()[1]
@@ -251,7 +250,7 @@ def test_session_sans_pilier_stocke_null(db, horloge):
 
 
 def test_repartition_par_tag_a_parts_egales(db):
-    wid = system_engine.get_or_create_week_id("2026-03-03")
+    wid = semaines.get_or_create_week_id("2026-03-03")
     with db_session() as c:
         _session(c, wid, "2026-03-03", 60.0, "LOGOS")
         _session(c, wid, "2026-03-03", 60.0, "LOGOS,VIGUEUR")
@@ -264,7 +263,7 @@ def test_repartition_par_tag_a_parts_egales(db):
 
 
 def test_repartition_par_pilier_agrege_les_sous_tags_forge(db):
-    wid = system_engine.get_or_create_week_id("2026-03-03")
+    wid = semaines.get_or_create_week_id("2026-03-03")
     with db_session() as c:
         _session(c, wid, "2026-03-03", 40.0, "FORGE_ENGAGEMENT,FORGE_PRO")
         _session(c, wid, "2026-03-03", 30.0, "FORGE_HARDSKILLS")

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from src.core import projets
 from src.database import connection
+from src.services import projets
 
 
 @pytest.fixture

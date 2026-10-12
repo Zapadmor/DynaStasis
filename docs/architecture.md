@@ -22,11 +22,29 @@
 | `bots/` | scripts de synchronisation (`vigueur`, `logos`) |
 | `src/core/sync_runner.py` | orchestre les sources (`main.py sync`) : un sous-processus par source, délai, statut en base, journal JSON |
 | `src/collectors/` | clients Intervals.icu, Strava, ADB, finance, journal de séances |
-| `src/core/` | règles métier : `system_engine` (semaines, cascade), `focus_manager`, `habit_manager`, `projets`, `profile`, `user_config`, `tz`, `demo` |
+| `src/pillars/` | registre des piliers : navigation, commandes CLI et sources de synchronisation (un module par pilier) |
+| `src/repositories/` | accès aux données : SQL pur (`projets`, `semaines`) |
+| `src/services/` | règles métier au-dessus des repositories (`projets`, `semaines` : semaine ISO, gel, cascade) |
+| `src/core/` | `focus_manager`, `habit_manager`, `profile`, `user_config`, `tz`, `demo`, `sync_runner` (en cours de migration vers `services/`) |
 | `src/app/` | interface : `ui_main.py` (navigation), `components.py` (barre latérale, thème), `views/` (une page par pilier) |
 | `src/database/connection.py` | connexion, migrations, `db_session()` |
 | `db/` | `schema.sql` (schéma de base), `migrations/` |
 | `config/` | `user.toml.example` |
+
+## Couches
+
+```
+ src/app/views/*  ──▶  src/services/*  ──▶  src/repositories/*  ──▶  SQLite
+ (rendu Streamlit)     (règles métier)       (SQL pur)
+```
+
+| Couche | Rôle | Interdit |
+|---|---|---|
+| **repository** (`src/repositories/<domaine>.py`) | une fonction = une requête ; reçoit la connexion `conn` en premier argument, renvoie des `dict`, des listes de `dict` ou des types simples | Streamlit, règles métier, ouverture de connexion, `commit` |
+| **service** (`src/services/<domaine>.py`) | règles de gestion (calculs, validations, enchaînements) ; ouvre la transaction (`db_session()`) et appelle les repositories ; les calculs purs sont des fonctions séparées, testables sans base | Streamlit, SQL |
+| **vue** (`src/app/views/`) | rendu et saisie ; appelle les services | SQL, règles métier |
+
+Les tests d'un repository utilisent la fixture `conn` (base temporaire migrée) ; ceux d'un service testent d'abord les fonctions pures, puis le cas complet avec la fixture `db`. Les vues restent couvertes par les `AppTest` de `tests/test_pages.py`. Le code historique migre vers ce schéma pilier par pilier ; `projets` et `semaines` en sont les modèles.
 
 ## Flux de données
 

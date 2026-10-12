@@ -23,8 +23,8 @@ ON CONFLICT(package, session_start) DO UPDATE SET
 
 def _run_manual() -> dict:
     """Saisie manuelle du temps d'écran pour la semaine en cours (audit hebdomadaire)."""
-    from src.core.system_engine import get_or_create_week_id, trigger_cascade_week
     from src.core.tz import today_local as _today
+    from src.services.semaines import get_or_create_week_id, trigger_cascade_week
 
     print("── Saisie manuelle du temps d'écran ──")
     total_raw = input("Temps d'écran total (minutes) : ").strip()
@@ -82,8 +82,8 @@ def run(host: str | None = None, top_n: int = 5) -> dict:
     # Recalcule sessions_lecture / sessions_jeune dans semaines_audit
     # pour que l'UI reflète immédiatement les habitudes saisies ce jour.
     try:
-        from src.core.system_engine import get_or_create_week_id, trigger_cascade_week
         from src.core.tz import today_local as _today
+        from src.services.semaines import get_or_create_week_id, trigger_cascade_week
 
         week_id = get_or_create_week_id(_today().isoformat())
         trigger_cascade_week(week_id)

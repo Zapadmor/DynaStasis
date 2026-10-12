@@ -448,8 +448,8 @@ def _render_sync() -> None:
         st.markdown("")
         if st.button("Recalculer les scores", key="recalc_scores", use_container_width=True):
             with st.spinner("Recalcul en cours…"):
-                from src.core.system_engine import trigger_cascade_week
                 from src.database.connection import db_session as _db
+                from src.services.semaines import trigger_cascade_week
 
                 with _db() as conn:
                     week_ids = [

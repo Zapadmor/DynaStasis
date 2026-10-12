@@ -8,8 +8,9 @@ from datetime import date
 
 import pytest
 
-from src.core import system_engine, tz, user_config
+from src.core import tz, user_config
 from src.database import connection
+from src.services import semaines
 
 
 @pytest.fixture
@@ -126,7 +127,7 @@ def test_seuil_focus_du_mode_est_celui_de_la_config(cfg, db):
 
 def test_semaine_sans_sequence_prend_le_mode_par_defaut(cfg, db):
     cfg('[modes.a]\nlabel = "A"\nfocus_jour_min = 1\nfocus_semaine_min = 1\n')
-    wid = system_engine.get_or_create_week_id("2026-03-04")
+    wid = semaines.get_or_create_week_id("2026-03-04")
     with sqlite3.connect(db) as c:
         assert c.execute(
             "SELECT mode_actif FROM semaines_audit WHERE id = ?", (wid,)

@@ -136,7 +136,7 @@ def _cascade_sync() -> None:
     Les données externes (HRV, sleep, screen) sont rafraîchies par le timer
     systemd toutes les 6h — inutile de rappeler les APIs ici.
     """
-    from src.core.system_engine import get_or_create_week_id, trigger_cascade_week
+    from src.services.semaines import get_or_create_week_id, trigger_cascade_week
 
     date_str = today_local().isoformat()
     week_id = get_or_create_week_id(date_str)

@@ -85,7 +85,7 @@ def _reconcile_frozen_weeks() -> tuple[int, int]:
     anticipation des semaines futures d'une pause déjà close prématurément.
     Retourne (semaines créées, semaines marquées gelées).
     """
-    from src.core.system_engine import get_or_create_week_id
+    from src.services.semaines import get_or_create_week_id
 
     today = today_local().isoformat()
     with db_session() as conn:

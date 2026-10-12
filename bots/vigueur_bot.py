@@ -112,7 +112,7 @@ def _cascade_current_weeks() -> None:
     Corrige le cas où habitude_logs (lecture, jeûne) a été mis à jour depuis
     l'interface mais trigger_cascade_week() n'avait pas encore tourné.
     """
-    from src.core.system_engine import get_or_create_week_id, trigger_cascade_week
+    from src.services.semaines import get_or_create_week_id, trigger_cascade_week
 
     today = today_local()
     for offset in (0, 7):

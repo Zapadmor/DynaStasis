@@ -6,9 +6,9 @@ import streamlit as st
 
 from src.app.components import PALETTE
 from src.app.theme import contrast_text as _contrast_text
-from src.core import projets
 from src.core.tz import today_local
 from src.database.connection import db_session
+from src.services import projets
 
 _ROOT = Path(__file__).resolve().parents[3]
 _BUDGET_FILE = _ROOT / "data" / "budget.yaml"
@@ -712,7 +712,7 @@ def _tab_finance() -> None:
                 "AV Linxea — UC diversifiés versé", value=invest["av_uc"], key="inv_av_uc_manual"
             )
             if st.button("Enregistrer", key="inv_save"):
-                from src.core.system_engine import get_or_create_week_id
+                from src.services.semaines import get_or_create_week_id
 
                 week_id = get_or_create_week_id(today_local().isoformat())
                 with db_session() as conn:

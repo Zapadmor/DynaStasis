@@ -12,12 +12,13 @@ import sqlite3
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from src.core import projets, user_config
+from src.core import user_config
 from src.core.focus_manager import TAGS
 from src.core.profile import set_profile
-from src.core.system_engine import get_or_create_week_id, trigger_cascade_week
 from src.core.tz import today_local
 from src.database import connection
+from src.services import projets
+from src.services.semaines import get_or_create_week_id, trigger_cascade_week
 
 MARKER_KEY = "demo.marker"
 DEFAULT_DEMO_DB = Path(__file__).resolve().parents[2] / "data" / "demo" / "dynastasie-demo.db"
