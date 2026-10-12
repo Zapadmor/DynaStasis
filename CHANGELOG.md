@@ -17,6 +17,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Pas
 - Couches `src/repositories/` (SQL) et `src/services/` (règles métier), avec leurs tests (+60 tests, couverture 64 %).
 
 ### Modifié
+- `scripts/sync_conteneur.sh` : le conteneur synchronise sans `logos` (`sync --skip`, ou `DYNASTASIS_SYNC_SKIP`), `logos` tourne sur l'hôte où l'ADB retrouve le téléphone par mDNS ; `SAMSUNG_ADB_MDNS=1` remplace l'IP fixe.
 - Les vues `resonance`, `vigueur` et `forge` sont découpées en paquets (un module par onglet) ; le SQL et les calculs en sortent. Aucun changement visuel.
 - `python main.py sync` ignore les sources des piliers désactivés dans `[piliers] actifs`.
 - Seuil de couverture de la CI : 7 % → 60 %.

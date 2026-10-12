@@ -36,6 +36,8 @@ Après une absence : `python main.py vigueur --full --lookback 365`.
 
 Activez le *Débogage sans fil* ([documentation Android](https://developer.android.com/tools/adb#connect-to-a-device-over-wi-fi)), renseignez `SAMSUNG_ADB_HOST` (adresse IP du téléphone) et `SAMSUNG_ADB_PORT` (5555 par défaut), puis `python main.py logos`. `adb` doit être installé. L'image Docker par défaut ne l'inclut **pas** : construisez la variante `adb` avec `DYNASTASIS_TARGET=adb docker compose up -d --build` (ou `docker build --target adb .`). Sans `adb`, `main.py logos` l'indique et propose la saisie manuelle.
 
+**Réseau changeant (téléphone sans IP fixe)** : jumelez le téléphone une fois (*Débogage sans fil → Associer*), puis laissez `SAMSUNG_ADB_HOST` vide et mettez `SAMSUNG_ADB_MDNS=1` : le téléphone est retrouvé par mDNS sur le réseau courant (l'IP n'est qu'un repli). Le mDNS n'atteint pas un conteneur en réseau pont : lancez alors la synchro depuis l'hôte (`scripts/sync_conteneur.sh` le fait) et mettez `DYNASTASIS_SYNC_SKIP=logos` dans `.env` pour que le conteneur n'essaie pas. Un échec ADB est signalé (`[ÉCHEC ADB]`, statut « Erreur ») ; les chiffres du cache ne sont plus présentés comme une réussite.
+
 **Sans téléphone** : `python main.py logos --manual` demande le temps d'écran total et les applications principales.
 
 Les applications comptées comme « distractives » sont les lignes de la table `apps_distrayantes` (colonne `package`) ; éditez-la dans la page *Système → SQL*.

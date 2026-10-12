@@ -196,11 +196,16 @@ def run_all(
     sources: list[Source] | None = None,
     only: list[str] | None = None,
     timeout: int | None = None,
+    skip: list[str] | None = None,
 ) -> list[Result]:
     """Lance les sources configurées l'une après l'autre ; l'échec de l'une ne bloque pas les autres."""
     selected = sources if sources is not None else default_sources()
     if only:
         selected = [s for s in selected if s.key in only]
+    # DYNASTASIS_SYNC_SKIP : sources confiées à un autre processus (ex. logos, lancé depuis l'hôte)
+    skip = [*(skip or []), *filter(None, os.environ.get("DYNASTASIS_SYNC_SKIP", "").split(","))]
+    if skip:
+        selected = [s for s in selected if s.key not in skip]
     results: list[Result] = []
     for source in selected:
         if not source.configured():

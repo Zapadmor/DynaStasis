@@ -105,3 +105,14 @@ def test_journal_json_dans_le_fichier(journal):
 def test_filtre_only(conn):
     results = sync_runner.run_all([_src("a", "pass"), _src("b", "pass")], only=["b"])
     assert [r.key for r in results] == ["b"]
+
+
+def test_skip_exclut_des_sources():
+    results = sync_runner.run_all([_src("a", "pass"), _src("b", "pass")], skip=["a"])
+    assert [r.key for r in results] == ["b"]
+
+
+def test_variable_d_environnement_exclut_des_sources(monkeypatch):
+    monkeypatch.setenv("DYNASTASIS_SYNC_SKIP", "b")
+    results = sync_runner.run_all([_src("a", "pass"), _src("b", "pass")])
+    assert [r.key for r in results] == ["a"]

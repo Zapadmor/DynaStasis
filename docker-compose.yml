@@ -19,6 +19,8 @@ services:
       - ${DYNASTASIS_DNS2:-8.8.4.4}
     environment:
       DYNASTASIS_DB: /app/dbdata/dynastasie.db
+      # Sources de `main.py sync` confiées à l'hôte (ex. logos : ADB/mDNS ne passe pas le réseau pont)
+      DYNASTASIS_SYNC_SKIP: ${DYNASTASIS_SYNC_SKIP:-}
     # Secrets : fichier hors dépôt (chmod 600), jamais monté dans l'image
     # Fichier facultatif : sans lui, l'application tourne sans aucune source externe.
     env_file:

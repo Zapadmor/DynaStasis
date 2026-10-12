@@ -2,7 +2,7 @@
 DynaStasie OS — Orchestrateur CLI
 
 Commandes :
-  sync           Toutes les sources configurées, isolées (--only intervals,strava,logos,finance ; --timeout N)
+  sync           Toutes les sources configurées, isolées (--only / --skip intervals,strava,logos,finance ; --timeout N)
   init-db        Initialise la base de données SQLite
   seed-demo      Crée une base de démonstration fictive (--db chemin, --base-reelle)
   profile        Contenu de profil en base : `profile export [fichier]` / `profile import fichier.json`
@@ -45,17 +45,22 @@ def main() -> int:
             + ", ".join(s.key for s in default_sources())
             + ")",
         )
+        parser.add_argument(
+            "--skip",
+            help="sources à exclure, séparées par des virgules (ex. logos, lancé depuis l'hôte)",
+        )
         parser.add_argument("--timeout", type=int, help="délai maximal par source, en secondes")
         args = parser.parse_args(sys.argv[2:])
         only = [k.strip() for k in args.only.split(",") if k.strip()] if args.only else None
-        inconnues = set(only or []) - {s.key for s in default_sources()}
+        skip = [k.strip() for k in args.skip.split(",") if k.strip()] if args.skip else None
+        inconnues = set((only or []) + (skip or [])) - {s.key for s in default_sources()}
         if inconnues:
             print(f"Source(s) inconnue(s) : {', '.join(sorted(inconnues))}", file=sys.stderr)
             return 2
         from src.database.connection import init_db
 
         init_db()  # idempotent : base fraîche (timer lancé avant la première ouverture de l'app)
-        return exit_code(run_all(only=only, timeout=args.timeout))
+        return exit_code(run_all(only=only, timeout=args.timeout, skip=skip))
 
     if cmd == "init-db":
         from src.database.connection import init_db

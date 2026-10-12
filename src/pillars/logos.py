@@ -23,7 +23,8 @@ def _sync(argv: list[str]) -> int:
 def _adb_ok() -> bool:
     from src.config import get_secret  # noqa: PLC0415
 
-    return bool(get_secret("samsung", "adb_host"))
+    # IP fixe, ou découverte mDNS (SAMSUNG_ADB_MDNS=1) quand le téléphone change d'adresse
+    return bool(get_secret("samsung", "adb_host") or get_secret("samsung", "adb_mdns"))
 
 
 def _sources():
@@ -35,7 +36,7 @@ def _sources():
             "screen_time",
             py("logos"),
             _adb_ok,
-            "SAMSUNG_ADB_HOST absent",
+            "SAMSUNG_ADB_HOST (ou SAMSUNG_ADB_MDNS=1) absent",
             timeout=180,
         )
     ]

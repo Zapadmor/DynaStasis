@@ -83,7 +83,7 @@ docker compose start streamlit                      # les migrations manquantes 
 
 | Timer | Fréquence | Action |
 |---|---|---|
-| `dynastasie-sync` | 01h, 07h, 13h, 19h | `docker exec dynastasie-streamlit python main.py sync` (via `scripts/sync_conteneur.sh` : conteneur arrêté → journalisé, sans échec) |
+| `dynastasie-sync` | 01h, 07h, 13h, 19h | `docker exec dynastasie-streamlit python main.py sync --skip logos`, puis `python main.py sync --only logos` sur l'hôte (via `scripts/sync_conteneur.sh` : conteneur arrêté → journalisé, sans échec ; l'étape hôte demande le venv `env/`) |
 | `dynastasie-backup` | tous les jours à 03h30 | `scripts/backup_db.py --keep 14` |
 
 ```bash
