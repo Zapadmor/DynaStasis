@@ -30,7 +30,7 @@ def cfg(tmp_path, monkeypatch):
 def test_exemple_versionne_reprend_les_defauts():
     exemple = user_config.CONFIG_PATH.with_name("user.toml.example")
     with open(exemple, "rb") as f:
-        assert tomllib.load(f) == user_config.DEFAULTS
+        assert tomllib.load(f) == user_config.defaults()
 
 
 def test_sans_fichier_les_defauts_s_appliquent(cfg, tmp_path, monkeypatch):

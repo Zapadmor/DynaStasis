@@ -21,7 +21,6 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "user.toml"
 
-PILIERS = ["FORGE", "LOGOS", "VIGUEUR", "RESONNANCE", "SYSTEME"]
 CRITERES = [
     "entrainement",
     "seances",
@@ -38,7 +37,7 @@ CRITERES = [
 DEFAULTS: dict[str, Any] = {
     "general": {"timezone": "Europe/Paris"},
     "interface": {"widget_url": ""},
-    "piliers": {"actifs": list(PILIERS)},
+    "piliers": {"actifs": None},  # None : tous les piliers déclarés dans src/pillars/
     "engagement": {
         "actif": True,
         "libelle": "Engagement",
@@ -108,6 +107,15 @@ def _merge(base: dict, override: dict, path: str = "") -> dict:
     return result
 
 
+def defaults() -> dict[str, Any]:
+    """Valeurs par défaut ; les piliers actifs viennent du registre `src/pillars/`."""
+    from src import pillars  # noqa: PLC0415
+
+    cfg = deepcopy(DEFAULTS)
+    cfg["piliers"]["actifs"] = pillars.keys()
+    return cfg
+
+
 def config_path() -> Path:
     return Path(os.environ.get("DYNASTASIS_CONFIG") or CONFIG_PATH)
 
@@ -123,7 +131,7 @@ def load() -> dict[str, Any]:
                 data = tomllib.load(f)
         except tomllib.TOMLDecodeError as exc:
             raise ConfigError(f"{path} : TOML invalide ({exc})") from exc
-    cfg = _merge(DEFAULTS, data)
+    cfg = _merge(defaults(), data)
     _validate(cfg)
     return cfg
 
@@ -138,9 +146,11 @@ def _validate(cfg: dict) -> None:
         ZoneInfo(cfg["general"]["timezone"])
     except (ZoneInfoNotFoundError, ValueError) as exc:
         raise ConfigError(f"Fuseau horaire inconnu : {cfg['general']['timezone']!r}") from exc
-    inconnus = set(cfg["piliers"]["actifs"]) - set(PILIERS)
+    from src import pillars  # noqa: PLC0415
+
+    inconnus = set(cfg["piliers"]["actifs"]) - set(pillars.keys())
     if inconnus:
-        raise ConfigError(f"Piliers inconnus : {sorted(inconnus)} (valides : {PILIERS})")
+        raise ConfigError(f"Piliers inconnus : {sorted(inconnus)} (valides : {pillars.keys()})")
     if not cfg["modes"]:
         raise ConfigError("Au moins un mode est requis dans [modes.*].")
     for code, spec in cfg["modes"].items():

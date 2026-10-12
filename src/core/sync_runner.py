@@ -19,7 +19,6 @@ from dataclasses import dataclass, field
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from src.config import get_secret
 from src.core.tz import now_local, today_local
 from src.database.connection import db_session
 
@@ -55,63 +54,16 @@ class Result:
         return self.status in (ERREUR, DELAI)
 
 
-def _py(*args: str) -> tuple[str, ...]:
+def py(*args: str) -> tuple[str, ...]:
+    """Commande `python main.py <args>` pour une source."""
     return (sys.executable, str(_MAIN), *args)
 
 
-def _intervals_ok() -> bool:
-    return bool(
-        get_secret("intervals_icu", "athlete_id") and get_secret("intervals_icu", "api_key")
-    )
-
-
-def _strava_ok() -> bool:
-    return bool(get_secret("strava", "client_id") and get_secret("strava", "client_secret"))
-
-
-def _adb_ok() -> bool:
-    return bool(get_secret("samsung", "adb_host"))
-
-
-def _finance_ok() -> bool:
-    return INBOX.is_dir() and any(
-        p.is_file() and not p.name.startswith(".") for p in INBOX.rglob("*")
-    )
-
-
 def default_sources() -> list[Source]:
-    return [
-        Source(
-            "intervals",
-            "vigueur",
-            _py("vigueur", "--only", "intervals"),
-            _intervals_ok,
-            "INTERVALS_ICU_ATHLETE_ID / INTERVALS_ICU_API_KEY absents",
-        ),
-        Source(
-            "strava",
-            "vigueur",
-            _py("vigueur", "--only", "strava"),
-            _strava_ok,
-            "STRAVA_CLIENT_ID / STRAVA_CLIENT_SECRET absents",
-        ),
-        Source(
-            "logos",
-            "screen_time",
-            _py("logos"),
-            _adb_ok,
-            "SAMSUNG_ADB_HOST absent",
-            timeout=180,
-        ),
-        Source(
-            "finance",
-            "finance",
-            _py("finance"),
-            _finance_ok,
-            "aucun export dans data/inbox/",
-            timeout=60,
-        ),
-    ]
+    """Sources des piliers actifs (déclarées dans `src/pillars/`)."""
+    from src.pillars import sources  # noqa: PLC0415
+
+    return sources()
 
 
 # ── Journal structuré : une ligne JSON par évènement (stdout + data/logs/sync.log) ──────────────

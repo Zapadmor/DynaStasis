@@ -3,15 +3,13 @@ DynaStasie OS — Orchestrateur CLI
 
 Commandes :
   sync           Toutes les sources configurées, isolées (--only intervals,strava,logos,finance ; --timeout N)
-  vigueur        Sync Intervals.icu + Strava PRs → SQLite (--only intervals|strava)
-  logos          Sync temps écran Samsung ADB → SQLite
-                   --manual : saisie manuelle du temps d'écran sans ADB
-  finance        Résumé financier depuis les exports CSV/XLSX
-  strava-auth    Autorisation OAuth Strava (scope activity:read_all)
   init-db        Initialise la base de données SQLite
   seed-demo      Crée une base de démonstration fictive (--db chemin, --base-reelle)
   profile        Contenu de profil en base : `profile export [fichier]` / `profile import fichier.json`
   app            Lance l'interface Streamlit (défaut)
+
+Les commandes propres à un pilier (vigueur, logos, finance, strava-auth…) sont déclarées dans
+`src/pillars/` : `python main.py --help` les liste.
 """
 
 from __future__ import annotations
@@ -22,6 +20,15 @@ import sys
 
 def main() -> int:
     cmd = sys.argv[1] if len(sys.argv) > 1 else "app"
+
+    if cmd in ("-h", "--help", "help"):
+        from src.pillars import commands  # noqa: PLC0415
+
+        print((__doc__ or "").rstrip())
+        print("\nCommandes des piliers :")
+        for c in commands().values():
+            print(f"  {c.name:<14} {c.help}")
+        return 0
 
     if cmd == "sync":
         import argparse
@@ -49,34 +56,6 @@ def main() -> int:
 
         init_db()  # idempotent : base fraîche (timer lancé avant la première ouverture de l'app)
         return exit_code(run_all(only=only, timeout=args.timeout))
-
-    if cmd == "vigueur":
-        sys.argv = [sys.argv[0]] + sys.argv[2:]
-        from bots.vigueur_bot import main as _m
-
-        return _m()
-
-    if cmd == "logos":
-        sys.argv = [sys.argv[0]] + sys.argv[2:]
-        from bots.logos_bot import main as _m
-
-        return _m()
-
-    if cmd == "finance":
-        sys.argv = [sys.argv[0]] + sys.argv[2:]
-        from src.collectors.finance_collector import main as _m
-
-        return _m()
-
-    if cmd == "strava-auth":
-        from src.collectors.strava_client import StravaAPIError, StravaClient
-
-        try:
-            StravaClient().authorize()
-        except StravaAPIError as exc:
-            print(f"Erreur : {exc}", file=sys.stderr)
-            return 1
-        return 0
 
     if cmd == "init-db":
         from src.database.connection import init_db
@@ -136,9 +115,14 @@ def main() -> int:
             env={**os.environ, "PYTHONPATH": str(root)},
         )
 
-    print(
-        f"Commande inconnue : {cmd}\nUsage: python main.py [sync|vigueur|logos|finance|init-db|seed-demo|profile|app]"
-    )
+    from src.pillars import commands  # noqa: PLC0415
+
+    piliers = commands()
+    if cmd in piliers:
+        return piliers[cmd].run(sys.argv[2:])
+
+    noyau = ["sync", "init-db", "seed-demo", "profile", "app"]
+    print(f"Commande inconnue : {cmd}\nUsage: python main.py [{'|'.join([*noyau, *piliers])}]")
     return 1
 
 

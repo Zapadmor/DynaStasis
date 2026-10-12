@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from src import pillars
 from src.core import user_config
 from src.core.system_engine import get_or_create_week_id, trigger_cascade_week
 from src.core.tz import tz
 from src.database.connection import db_session
 
 # Piliers "parents" — utilisés pour la répartition agrégée (sidebar, SYSTÈME de l'audit).
-PILIERS = ["FORGE", "LOGOS", "VIGUEUR", "RESONNANCE", "SYSTEME"]
+PILIERS = pillars.keys()
 
 # Tags flaguables sur une session focus. FORGE est éclaté en sous-tags : le critère « engagement »
 # (libellé configurable, désactivable) et les hard skills sont permanents ; le sous-tag « pro »
