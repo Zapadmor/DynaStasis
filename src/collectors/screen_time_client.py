@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import subprocess
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -21,6 +22,10 @@ _ADB_CANDIDATES = [
     Path("/usr/bin/adb"),
 ]
 _ADB_BIN = next((str(p) for p in _ADB_CANDIDATES if p.exists()), "adb")
+
+# Service mDNS publié par le débogage sans fil d'Android 11+ (jumelé une fois, sans IP fixe).
+_MDNS_CONNECT = "_adb-tls-connect._tcp"
+_MDNS_WAIT_S = 10  # attente maximale de l'apparition de l'appareil après découverte
 
 _EVENT_RE = re.compile(r'time="(?P<ts>[^"]+)" type=(?P<type>\S+) package=(?P<pkg>\S+)')
 
@@ -89,6 +94,16 @@ _SYSTEM_PREFIXES = (
 _MIN_SESSION_SECONDS = 5.0
 
 
+def parse_mdns_services(output: str) -> list[str]:
+    """Extrait les `ip:port` des services `_adb-tls-connect._tcp` de `adb mdns services`."""
+    addrs = []
+    for line in output.splitlines():
+        parts = line.split()
+        if _MDNS_CONNECT in parts and parts[-1] != _MDNS_CONNECT:
+            addrs.append(parts[-1])
+    return addrs
+
+
 def _is_system_package(package: str) -> bool:
     return any(package == p or package.startswith(p) for p in _SYSTEM_PREFIXES)
 
@@ -107,14 +122,11 @@ class AdbClient:
                 "`adb` est introuvable. Installez android-tools (apt install adb) ou, avec Docker, "
                 "reconstruisez l'image avec la cible adb : DYNASTASIS_TARGET=adb docker compose up -d --build."
             )
-        self.host = host or get_secret("samsung", "adb_host")
-        if not self.host:
-            raise RuntimeError(
-                "IP du Samsung introuvable — définir SAMSUNG_ADB_HOST dans secrets.env "
-                "ou passer host= en paramètre."
-            )
+        # L'IP est facultative : sans elle (ou si elle est périmée après un changement de réseau),
+        # l'appareil jumelé est retrouvé par mDNS.
+        self.host = host or get_secret("samsung", "adb_host") or ""
         self.port = port or int(get_secret("samsung", "adb_port") or 5555)
-        self.target = f"{self.host}:{self.port}"
+        self.target = f"{self.host}:{self.port}" if self.host else ""
 
     def _adb(self, args: list[str], timeout: int = 60) -> subprocess.CompletedProcess:
         return subprocess.run(
@@ -140,7 +152,7 @@ class AdbClient:
             if len(parts) < 2 or parts[1] != "device":
                 continue
             serial = parts[0]
-            if self.host in serial:
+            if self.host and self.host in serial:
                 return serial
             serials.append(serial)
         return serials[0] if len(serials) == 1 else None
@@ -171,15 +183,50 @@ class AdbClient:
         except Exception:
             pass
 
+    def _mdns_addresses(self) -> list[str]:
+        """Adresses `ip:port` des appareils qui annoncent le débogage sans fil (mDNS)."""
+        try:
+            out = self._adb(["mdns", "services"], timeout=8).stdout
+        except (subprocess.TimeoutExpired, OSError):
+            return []
+        return parse_mdns_services(out)
+
+    def _connect_via_mdns(self) -> str | None:
+        """Retrouve l'appareil jumelé sur le réseau courant, sans connaître son IP."""
+        for addr in self._mdns_addresses():
+            try:
+                self._adb(["connect", addr], timeout=8)
+            except (subprocess.TimeoutExpired, OSError):
+                continue
+        deadline = time.monotonic() + _MDNS_WAIT_S
+        while True:
+            device = self._find_connected_device()
+            if device or time.monotonic() >= deadline:
+                return device
+            time.sleep(1)
+
     def connect(self) -> None:
         self._ensure_new_daemon()
 
-        # Si l'appareil est déjà visible (ex: mDNS auto-découverte Android 11+), on l'utilise
+        # 1. Appareil déjà visible (mDNS auto-découverte Android 11+)
         already = self._find_connected_device()
         if already:
             self.target = already
             return
 
+        # 2. Découverte mDNS : indépendante de l'IP, donc valable d'un réseau à l'autre
+        found = self._connect_via_mdns()
+        if found:
+            self.target = found
+            return
+
+        # 3. Repli sur l'IP configurée
+        if not self.target:
+            raise RuntimeError(
+                "Aucun téléphone trouvé par mDNS. Vérifiez que le débogage sans fil est activé, "
+                "que le téléphone est sur le même réseau et déjà jumelé, ou définissez "
+                "SAMSUNG_ADB_HOST dans secrets.env."
+            )
         try:
             result = self._adb(["connect", self.target], timeout=8)
         except subprocess.TimeoutExpired as exc:
@@ -191,7 +238,7 @@ class AdbClient:
         output = (result.stdout + result.stderr).lower()
         if "connected" not in output and "already" not in output:
             raise RuntimeError(
-                f"ADB connect vers {self.target} a échoué : "
+                f"ADB connect vers {self.target} a échoué (mDNS n'a rien trouvé non plus) : "
                 f"{(result.stdout + result.stderr).strip()}"
             )
 

@@ -29,6 +29,8 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Pas
 - `today_paris` / `now_paris` deviennent `today_local` / `now_local` (fuseau configurable).
 
 ### Corrigé
+- `python main.py logos` (et la synchro) signale clairement l'échec d'ADB : message `[ÉCHEC ADB]` et code de retour 1, au lieu d'un « ok » qui réutilisait le cache sans le dire.
+- ADB : le téléphone jumelé est d'abord retrouvé par mDNS (indépendant du réseau), l'IP `SAMSUNG_ADB_HOST` n'est plus qu'un repli et devient facultative en local.
 - Petits graphiques 7 j de Vigueur : étiquettes « jj/mm » en axe catégoriel (elles s'affichaient « Mar 2010 »).
 
 ### Supprimé

@@ -114,9 +114,15 @@ def main() -> int:
         _run_manual()
     else:
         try:
-            run(host=args.host, top_n=args.top_n)
+            summary = run(host=args.host, top_n=args.top_n)["summary"]
         except RuntimeError as exc:
             print(f"Erreur : {exc}\nSans téléphone ni ADB : python main.py logos --manual")
+            return 1
+        if summary["adb_error"]:
+            print(
+                "\n[ÉCHEC ADB] Aucune donnée récupérée du téléphone : les chiffres ci-dessus "
+                f"viennent du cache.\n  Cause : {summary['adb_error']}"
+            )
             return 1
     return 0
 
