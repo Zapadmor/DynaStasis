@@ -23,13 +23,29 @@
 | `src/core/sync_runner.py` | orchestre les sources (`main.py sync`) : un sous-processus par source, délai, statut en base, journal JSON |
 | `src/collectors/` | clients Intervals.icu, Strava, ADB, finance, journal de séances |
 | `src/pillars/` | registre des piliers : navigation, commandes CLI et sources de synchronisation (un module par pilier) |
-| `src/repositories/` | accès aux données : SQL pur (`projets`, `semaines`) |
-| `src/services/` | règles métier au-dessus des repositories (`projets`, `semaines` : semaine ISO, gel, cascade) |
-| `src/core/` | `focus_manager`, `habit_manager`, `profile`, `user_config`, `tz`, `demo`, `sync_runner` (en cours de migration vers `services/`) |
-| `src/app/` | interface : `ui_main.py` (navigation), `components.py` (barre latérale, thème), `views/` (une page par pilier) |
+| `src/repositories/` | accès aux données : SQL pur (`projets`, `semaines`, `audits`, `npt`, `vigueur`, `finance`, `objectifs`, `schema`) |
+| `src/services/` | règles métier au-dessus des repositories (`semaines` : semaine ISO, gel, cascade ; `audits`, `vigueur`, `workouts`, `finance`, `objectifs`, `projets`, `npt`) |
+| `src/core/` | `focus_manager`, `habit_manager`, `profile`, `user_config`, `tz`, `demo`, `sync_runner` (le code historique migre vers `services/` au fil des chantiers) |
+| `src/app/` | interface : `ui_main.py` (navigation construite depuis le registre), `components.py` (barre latérale, thème), `views/` (une page par pilier ; les plus grosses sont des paquets, un module par onglet : `forge/`, `resonance/`, `vigueur/`) |
 | `src/database/connection.py` | connexion, migrations, `db_session()` |
 | `db/` | `schema.sql` (schéma de base), `migrations/` |
 | `config/` | `user.toml.example` |
+
+## Registre de piliers
+
+`src/pillars/` est la seule source de vérité des piliers. Chaque module expose un `PILIER` (`src/pillars/base.py`) qui déclare :
+
+| Champ | Rôle |
+|---|---|
+| `key`, `label`, `icon`, `url_path` | identité dans la navigation et dans `[piliers] actifs` |
+| `render(semaine_courante)` | affiche la page (import paresseux de la vue : `main.py` n'a pas besoin de Streamlit) |
+| `sync` | commande CLI de synchronisation propre au pilier (facultatif) |
+| `commands` | autres commandes CLI (par exemple `strava-auth`) |
+| `sources()` | sources lancées par `main.py sync` (isolées, avec délai et statut) |
+| `sync_order` | rang dans `main.py sync` |
+| `toggleable` | `False` pour la page d'accueil, toujours affichée |
+
+Consommateurs : `ui_main.py` (`pillars.actifs()` → `st.navigation`), `main.py` (`pillars.commands()` → dispatch, aide `--help`), `sync_runner.default_sources()` (`pillars.sources()`, piliers actifs seulement), `user_config` (validation de `[piliers] actifs`) et `focus_manager.PILIERS` (tags de focus). L'ordre de `_MODULES` dans `src/pillars/__init__.py` est l'ordre de la navigation.
 
 ## Couches
 

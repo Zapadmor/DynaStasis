@@ -40,6 +40,6 @@ pythonpath = ["."]
 source = ["src"]
 
 [tool.coverage.report]
-# Seuil bas au départ : les vues Streamlit ne sont pas encore testées (cf. plan de sprints)
-fail_under = 7
+# Mesuré à 64 % après le découpage des vues (Sprint 5) ; marge pour les variations entre environnements
+fail_under = 60
 skip_covered = true

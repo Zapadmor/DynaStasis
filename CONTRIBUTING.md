@@ -28,8 +28,19 @@ La CI rejoue exactement ces contrôles, plus la construction de l'image Docker. 
 ## Tests
 
 - Les tests utilisent des bases SQLite temporaires (fixtures `db` et `demo_db` de `tests/conftest.py`) ; aucun test ne touche `db/dynastasie.db`.
+- Un service se teste par ses fonctions pures puis avec la fixture `db` ; un repository avec la fixture `conn` (voir `tests/test_services_*.py`).
 - Les pages Streamlit se testent avec `streamlit.testing.v1.AppTest` (voir `tests/test_pages.py`, `tests/test_sans_source.py`).
 - Une règle de scoring ou une migration modifiée doit s'accompagner d'un test.
+
+## Architecture du code
+
+Trois couches, du rendu vers les données (détail dans [docs/architecture.md](docs/architecture.md#couches)) :
+
+- **vue** (`src/app/views/`) : rendu Streamlit et saisie ; ni SQL ni règle métier ;
+- **service** (`src/services/`) : règles de gestion ; ouvre `db_session()` et appelle les repositories ; les calculs purs sont des fonctions à part, testables sans base ;
+- **repository** (`src/repositories/`) : SQL pur, `conn` en premier argument, renvoie des `dict` ; pas de Streamlit, pas de `commit`.
+
+Les vues volumineuses sont des paquets (un module par onglet, `__init__.py` expose `render`). Pour **ajouter un pilier**, voir [docs/piliers.md](docs/piliers.md#ajouter-un-pilier). Pour déplacer du code existant vers ces couches, faites deux commits : un de déplacement pur, un de nettoyage.
 
 ## Migrations de base
 

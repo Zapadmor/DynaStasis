@@ -47,3 +47,36 @@ Les semaines peuvent suivre des séquences de modes (par exemple « École » / 
 | temps d'écran | ADB | `logos --manual` |
 | finances | exports bancaires | onglet Finance de Forge |
 | focus, habitudes, objectifs, projets, audits | — | saisie dans l'interface |
+
+## Ajouter un pilier
+
+Un pilier est un module de `src/pillars/` ; ni `main.py` ni `ui_main.py` ne changent.
+
+1. Créez la vue `src/app/views/mon_pilier.py` (ou un paquet si elle a plusieurs onglets) avec une fonction `render()`. Gardez le SQL dans `src/repositories/` et les règles dans `src/services/` (voir [architecture](architecture.md#couches)).
+2. Créez `src/pillars/mon_pilier.py` :
+
+   ```python
+   from src.pillars.base import Command, Pilier
+
+
+   def render(cw: dict | None) -> None:
+       from src.app.views import mon_pilier  # import paresseux
+
+       mon_pilier.render()
+
+
+   PILIER = Pilier(
+       key="MON_PILIER",            # code technique (config, tags de focus)
+       label="Mon pilier",
+       icon=":material/star:",
+       url_path="mon-pilier",
+       render=render,
+       # facultatif : une commande de synchro et les sources qu'`main.py sync` lance
+       # sync=Command("mon-pilier", "Synchronise ma source", _sync),
+       # sources=_sources,
+   )
+   ```
+3. Ajoutez `"mon_pilier"` à `_MODULES` dans `src/pillars/__init__.py` (l'ordre est celui de la navigation).
+4. Documentez-le dans cette page et ajoutez un test (`tests/test_piliers.py` vérifie déjà l'ordre, le filtrage par la configuration et l'unicité des commandes).
+
+Le pilier apparaît alors dans `[piliers] actifs` (activé par défaut), dans la navigation et, s'il déclare `sync` ou `sources`, dans `python main.py --help` et `python main.py sync`.

@@ -13,13 +13,23 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Pas
 - `python main.py sync` : lance chaque source configurée dans un sous-processus isolé (délai, code de retour agrégé), journal JSON dans `data/logs/sync.log`, statut par source (`sync_checkpoints`, `logs_systeme`) affiché dans *Système → Synchronisation* (migration 005).
 - `scripts/backup_db.py` et timer systemd `dynastasie-backup` : sauvegarde quotidienne rotative de la base ; documentation de restauration.
 
+- Registre de piliers (`src/pillars/`) : navigation, commandes CLI (`python main.py --help`) et sources de synchronisation en dérivent ; ajouter un pilier ne touche plus `main.py` (voir `docs/piliers.md`).
+- Couches `src/repositories/` (SQL) et `src/services/` (règles métier), avec leurs tests (+60 tests, couverture 64 %).
+
 ### Modifié
+- Les vues `resonance`, `vigueur` et `forge` sont découpées en paquets (un module par onglet) ; le SQL et les calculs en sortent. Aucun changement visuel.
+- `python main.py sync` ignore les sources des piliers désactivés dans `[piliers] actifs`.
+- Seuil de couverture de la CI : 7 % → 60 %.
+- `core/projets.py` et `core/system_engine.py` deviennent `services/projets.py` et `services/semaines.py`.
 - Le timer systemd lance `main.py sync` (toutes les sources) via `scripts/sync_conteneur.sh`, qui ne fait pas échouer l'unité quand le conteneur est arrêté.
 - Les modes `ecole` / `entreprise` deviennent des codes configurables (migration 004 : conversion vers `ecole` / `entreprise`, levée des contraintes `CHECK`).
 - Le critère propre à l'auteur devient le critère générique « engagement » : tag `FORGE_ENGAGEMENT`, colonnes `focus_engagement_min`, `jours_engagement_semaine`, `forge_drill_engagement`, `plan_drill_engagement`, `forge_jours_engagement_mois` (migration 004).
 - Les seuils du score ne sont plus codés dans les vues SQL : ils viennent de `score_config` / `modes_config`.
 - `docker-compose.yml` : le fichier de secrets est facultatif ; `./config` est monté en lecture seule.
 - `today_paris` / `now_paris` deviennent `today_local` / `now_local` (fuseau configurable).
+
+### Corrigé
+- Petits graphiques 7 j de Vigueur : étiquettes « jj/mm » en axe catégoriel (elles s'affichaient « Mar 2010 »).
 
 ### Supprimé
 - Widget audio externe de la barre latérale (réactivable via `[interface] widget_url`).
