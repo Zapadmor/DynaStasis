@@ -16,6 +16,7 @@ services:
       - "8501:8501"
     dns:
       - ${DYNASTASIS_DNS:-8.8.8.8}
+      - ${DYNASTASIS_DNS2:-8.8.4.4}
     environment:
       DYNASTASIS_DB: /app/dbdata/dynastasie.db
     # Secrets : fichier hors dépôt (chmod 600), jamais monté dans l'image
