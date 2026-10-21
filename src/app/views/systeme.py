@@ -373,8 +373,30 @@ def _render_sync_status() -> None:
     st.markdown("---")
 
 
+def _render_repo_sync() -> None:
+    """Pull git du repo lui-même — complète la synchro Syncthing (db/, claude-*)
+    qui ne couvre pas le code versionné. Pas de bouton push : ça reste un choix
+    manuel au terminal (quelle branche, pour quelle PR)."""
+    st.markdown(
+        f'<div style="border-left:3px solid {PALETTE["blue_green"]};padding:6px 12px;">'
+        f"<strong>Repo DynaStasis</strong><br>"
+        f'<span style="font-size:.8rem;opacity:.7;">git pull --ff-only — échoue proprement si l\'arbre est sale</span>'
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("")
+    if st.button("Pull DynaStasis (git)", key="git_pull_repo"):
+        with st.spinner("git pull --ff-only…"):
+            ok, msg = _run_cmd("git-pull")
+        (st.success if ok else st.error)(msg)
+        if ok:
+            st.rerun()
+    st.markdown("---")
+
+
 def _render_sync() -> None:
     _render_sync_status()
+    _render_repo_sync()
     st.markdown("### Synchronisation des données")
 
     col_v, col_l, col_f = st.columns(3, gap="large")

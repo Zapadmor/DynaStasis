@@ -3,6 +3,7 @@ DynaStasie OS — Orchestrateur CLI
 
 Commandes :
   sync           Toutes les sources configurées, isolées (--only / --skip intervals,strava,logos,finance ; --timeout N)
+  git-pull       Met à jour le repo (git pull --ff-only, sans écraser de travail local)
   init-db        Initialise la base de données SQLite
   seed-demo      Crée une base de démonstration fictive (--db chemin, --base-reelle)
   profile        Contenu de profil en base : `profile export [fichier]` / `profile import fichier.json`
@@ -97,6 +98,20 @@ def main() -> int:
         print(f"       Lancer l'app : DYNASTASIS_DB={path} python main.py app")
         return 0
 
+    if cmd == "git-pull":
+        import subprocess
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parent
+        result = subprocess.run(
+            ["git", "pull", "--ff-only"],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+        )
+        print((result.stdout + result.stderr).strip())
+        return result.returncode
+
     if cmd == "profile":
         from src.core.profile import export_profile, import_profile
 
@@ -126,7 +141,7 @@ def main() -> int:
     if cmd in piliers:
         return piliers[cmd].run(sys.argv[2:])
 
-    noyau = ["sync", "init-db", "seed-demo", "profile", "app"]
+    noyau = ["sync", "git-pull", "init-db", "seed-demo", "profile", "app"]
     print(f"Commande inconnue : {cmd}\nUsage: python main.py [{'|'.join([*noyau, *piliers])}]")
     return 1
 
