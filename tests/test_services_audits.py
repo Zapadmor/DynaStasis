@@ -158,3 +158,26 @@ def test_notes_pour_trop_tard(db):
     assert [p["id"] for p in npt.personnes()] == [pid]
     assert [n["contenu"] for n in npt.notes(pid)] == ["salut", "bonjour"]
     assert npt.personnes()[0]["liens"] == "Amis,Famille"
+
+
+def test_chantiers_introspection(db):
+    assert npt.chantiers_prets()
+    pid = npt.ajouter_personne("Alex", "Test", ["Amis"], "En vie et proche", 5)
+    c1 = npt.ajouter_chantier(pid, "RETEX", "Dispute de mars", "point de départ")
+    c2 = npt.ajouter_chantier(None, "Défaut", "Je fuis le conflit")
+    npt.ajouter_entree(c1, "2026-03-01", "premier constat")
+    npt.ajouter_entree(c1, "2026-03-05", "deuxième constat")
+    npt.changer_statut_chantier(c2, "En cours")
+
+    par_id = {c["id"]: c for c in npt.chantiers()}
+    assert par_id[c1]["personne"] == "Alex Test"
+    assert par_id[c1]["nb_entrees"] == 2
+    assert par_id[c2]["personne_id"] is None
+    assert par_id[c2]["statut"] == "En cours"
+    assert [e["contenu"] for e in npt.entrees(c1)] == ["deuxième constat", "premier constat"]
+    assert npt.chantiers()[0]["id"] == c2  # « En cours » avant « Ouvert »
+
+    with pytest.raises(ValueError):
+        npt.ajouter_chantier(None, "Inconnu", "x")
+    with pytest.raises(ValueError):
+        npt.changer_statut_chantier(c1, "Terminé")

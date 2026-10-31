@@ -5,6 +5,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Pas
 ## Non publié
 
 ### Ajouté
+- Résonnance → Notes pour trop tard → « Chantiers & RETEX » : chantiers d'introspection (RETEX, chantier psy, exercice, écueil, défi relationnel, qualité, défaut), rattachés à une personne ou à soi, avec statut et entrées de suivi datées (tables `npt_chantiers`, `npt_chantier_entrees`).
 - `python main.py seed-demo` : base de démonstration entièrement fictive (semaines, habitudes, focus, sport, temps d'écran, finances, objectifs, projet à phases, plan de profil), idempotente, avec garde-fous contre l'écrasement d'une base réelle.
 - `DYNASTASIS_DB` : chemin de base configurable ; `docker-compose.demo.yml` pour essayer l'application sans rien configurer.
 - `config/user.toml` (modèle `user.toml.example`) : fuseau horaire, piliers actifs, modes, seuils et poids du score, critère « engagement » (libellé et activation), widget externe facultatif.

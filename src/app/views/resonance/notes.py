@@ -5,6 +5,7 @@ from __future__ import annotations
 import streamlit as st
 
 from src.app.components import GRAY, PALETTE
+from src.app.views.resonance.chantiers import _render_chantiers
 from src.core.tz import today_local
 from src.services import npt
 
@@ -28,6 +29,14 @@ _LIEN_COLORS = {
 
 def _render_notes_trop_tard() -> None:
     st.markdown("### Notes pour trop tard — Mémoire & Présences")
+    tab_carnet, tab_chantiers = st.tabs(["Carnet", "Chantiers & RETEX"])
+    with tab_carnet:
+        _render_carnet()
+    with tab_chantiers:
+        _render_chantiers()
+
+
+def _render_carnet() -> None:
     st.caption("Pour les personnes qui comptent et celles qui ne sont plus là.")
 
     if not npt.tables_pretes():
