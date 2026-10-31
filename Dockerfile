@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ── Étape 1 : dépendances Python (lockfile) dans un venv isolé ────────────────
-FROM python:3.12-slim AS builder
+FROM python:3.15-slim AS builder
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 RUN python -m venv /opt/venv
@@ -9,7 +9,7 @@ COPY requirements.txt .
 RUN /opt/venv/bin/pip install -r requirements.txt
 
 # ── Étape 2 : socle d'exécution commun ────────────────────────────────────────
-FROM python:3.12-slim AS base
+FROM python:3.15-slim AS base
 ARG UID=1000
 ARG GID=1000
 ENV PYTHONUNBUFFERED=1 \
