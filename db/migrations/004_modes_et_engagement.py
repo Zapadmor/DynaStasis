@@ -1,6 +1,6 @@
 """Modes et critère « engagement » génériques.
 
-- les modes `ecole` / `entreprise` deviennent des codes configurables (config/user.toml, `[modes.*]`) :
+- les deux modes d'origine deviennent des codes configurables (config/user.toml, `[modes.*]`) :
   levée des CHECK sur `semaines_audit.mode_actif` et `sequences_mode.lieu`, puis conversion
   des anciennes valeurs vers les codes de la configuration ;
 - le critère propre à l'auteur devient « engagement » : tag `FORGE_ENGAGEMENT` → `FORGE_ENGAGEMENT`,
@@ -73,7 +73,7 @@ def _rebuild_without_check(conn: sqlite3.Connection, table: str, column: str) ->
 
 
 def _legacy_mode_codes() -> tuple[str, str]:
-    """Codes de la configuration qui reprennent les anciens modes `ecole` et `entreprise`."""
+    """Codes de la configuration qui reprennent les deux modes d'origine (non professionnel / professionnel)."""
     from src.core import user_config
 
     modes = list(user_config.modes().values())
@@ -91,9 +91,13 @@ def apply(conn: sqlite3.Connection) -> None:
     ecole, entreprise = _legacy_mode_codes()
     for table, column in (("semaines_audit", "mode_actif"), ("sequences_mode", "lieu")):
         if column in _columns(conn, table):
-            conn.execute(f"UPDATE {table} SET {column} = ? WHERE {column} = 'ecole'", (ecole,))
             conn.execute(
                 f"UPDATE {table} SET {column} = ? WHERE {column} = 'Entreprise'", (entreprise,)
+            )
+            # toute autre valeur d'origine correspond au mode non professionnel
+            conn.execute(
+                f"UPDATE {table} SET {column} = ? WHERE {column} NOT IN (?, ?)",
+                (ecole, ecole, entreprise),
             )
     for table in ("focus_sessions", "system_freezes"):
         if "piliers" in _columns(conn, table):

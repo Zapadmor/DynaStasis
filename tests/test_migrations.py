@@ -51,7 +51,7 @@ def _create_legacy_db(path):
                 contenu TEXT NOT NULL
             );
             INSERT INTO semaines_audit (week_start, week_label, friction_score, mode_actif)
-                VALUES ('2026-01-05', 'S02', 42.5, 'ecole');
+                VALUES ('2026-01-05', 'S02', 42.5, 'Cours');
             INSERT INTO vigueur_entries (date_entry, ctl) VALUES ('2026-01-05', 50);
             """
         )

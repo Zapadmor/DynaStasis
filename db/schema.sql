@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS semaines_audit (
     alertes_json            TEXT,
 
     -- META
-    mode_actif              TEXT CHECK (mode_actif IN ('ecole','Entreprise')),
+    mode_actif              TEXT CHECK (mode_actif IN ('ecole','entreprise')),
     created_at              TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
     updated_at              TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
@@ -333,7 +333,7 @@ CREATE TABLE IF NOT EXISTS depenses_budget (
 CREATE TABLE IF NOT EXISTS sequences_mode (
     id          INTEGER PRIMARY KEY,
     numero      INTEGER NOT NULL,
-    lieu        TEXT    NOT NULL CHECK (lieu IN ('ecole','Entreprise')),
+    lieu        TEXT    NOT NULL CHECK (lieu IN ('ecole','entreprise')),
     date_debut  TEXT    NOT NULL,
     date_fin    TEXT    NOT NULL
 );

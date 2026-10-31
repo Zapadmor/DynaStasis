@@ -152,12 +152,12 @@ def _base_version_3(path):
             """
             CREATE TABLE semaines_audit (
                 id INTEGER PRIMARY KEY, week_start TEXT NOT NULL UNIQUE, week_label TEXT NOT NULL,
-                mode_actif TEXT CHECK (mode_actif IN ('ecole','Entreprise')),
+                mode_actif TEXT CHECK (mode_actif IN ('Cours','Entreprise')),
                 focus_engagement_min REAL, score_semaine REAL, is_frozen INTEGER NOT NULL DEFAULT 0
             );
             CREATE TABLE sequences_mode (
                 id INTEGER PRIMARY KEY, numero INTEGER NOT NULL,
-                lieu TEXT NOT NULL CHECK (lieu IN ('ecole','Entreprise')),
+                lieu TEXT NOT NULL CHECK (lieu IN ('Cours','Entreprise')),
                 date_debut TEXT NOT NULL, date_fin TEXT NOT NULL
             );
             CREATE TABLE focus_sessions (
@@ -169,7 +169,7 @@ def _base_version_3(path):
                 jours_engagement_semaine INTEGER DEFAULT 0, forge_drill_engagement TEXT
             );
             INSERT INTO semaines_audit (week_start, week_label, mode_actif, focus_engagement_min)
-                VALUES ('2026-01-05', 'S02', 'ecole', 50), ('2026-01-12', 'S03', 'Entreprise', 0);
+                VALUES ('2026-01-05', 'S02', 'Cours', 50), ('2026-01-12', 'S03', 'Entreprise', 0);
             INSERT INTO sequences_mode (numero, lieu, date_debut, date_fin)
                 VALUES (1, 'Entreprise', '2026-01-12', '2026-02-01');
             INSERT INTO focus_sessions (date_session, piliers, semaine_id)
