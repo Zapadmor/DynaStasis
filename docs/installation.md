@@ -28,7 +28,7 @@ docker compose -f docker-compose.demo.yml up --build   # http://localhost:8502
 
 ### Image publiée
 
-`docker pull ghcr.io/zapadmor/dynastasis:latest` (ou `:vX.Y.Z`, `:sha-xxxxxxx`, `:latest-adb` pour la variante avec `adb`) ; amd64 et arm64. Le dépôt reste nécessaire pour utiliser `docker-compose.yml` (configuration, volumes) : l'image seule suffit pour la démo (voir le README).
+`docker pull ghcr.io/zapadmor/dynastasis-app:latest` (ou `:vX.Y.Z`, `:sha-xxxxxxx`, `:latest-adb` pour la variante avec `adb`) ; amd64 et arm64. Le dépôt reste nécessaire pour utiliser `docker-compose.yml` (configuration, volumes) : l'image seule suffit pour la démo (voir le README).
 
 ### Vos données
 

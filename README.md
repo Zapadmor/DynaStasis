@@ -30,7 +30,7 @@ Les images sont publiées sur GitHub Container Registry (`latest` suit `main`, l
 
 ```bash
 docker run --rm -p 8502:8501 -e DYNASTASIS_DB=/tmp/demo/dynastasie-demo.db \
-  ghcr.io/zapadmor/dynastasis:latest \
+  ghcr.io/zapadmor/dynastasis-app:latest \
   sh -c "python main.py seed-demo && streamlit run src/app/ui_main.py --server.headless true"
 ```
 
