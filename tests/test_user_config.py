@@ -181,7 +181,7 @@ def _base_version_3(path):
         )
 
 
-def test_migration_004_convertit_modes_tags_et_colonnes(tmp_path, monkeypatch):
+def test_migration_004_convertit_modes_et_leve_les_check(tmp_path, monkeypatch):
     path = tmp_path / "v3.db"
     monkeypatch.setattr(connection, "DB_PATH", path)
     _base_version_3(path)

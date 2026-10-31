@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS semaines_audit (
     sessions_jeune          INTEGER,
     score_semaine           REAL,   -- score semaine 0-100 (100=parfait)
     hrv_delta_s1            REAL,   -- delta HRV médiane vs semaine précédente
-    focus_engagement_min     REAL,   -- minutes focus taguées FORGE_ENGAGEMENT (rollup cascade) ; colonne renommée par la migration 004
+    focus_engagement_min     REAL,   -- minutes focus taguées FORGE_ENGAGEMENT (rollup cascade)
     focus_projets_fond_min  REAL,   -- minutes focus FORGE_HARDSKILLS+FORGE_PRO+LOGOS (rollup cascade)
     alertes_json            TEXT,
 

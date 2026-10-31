@@ -1,10 +1,8 @@
-"""Modes et critère « engagement » génériques.
+"""Modes génériques.
 
-- les deux modes d'origine deviennent des codes configurables (config/user.toml, `[modes.*]`) :
-  levée des CHECK sur `semaines_audit.mode_actif` et `sequences_mode.lieu`, puis conversion
-  des anciennes valeurs vers les codes de la configuration ;
-- le critère propre à l'auteur devient « engagement » : tag `FORGE_ENGAGEMENT` → `FORGE_ENGAGEMENT`,
-  colonnes `*_engagement*` / `jours_engagement_semaine` renommées.
+Les deux modes d'origine deviennent des codes configurables (config/user.toml, `[modes.*]`) :
+levée des CHECK sur `semaines_audit.mode_actif` et `sequences_mode.lieu`, puis conversion
+des anciennes valeurs vers les codes de la configuration.
 
 Idempotent : chaque étape ne fait rien si elle est déjà appliquée.
 """
@@ -14,28 +12,9 @@ from __future__ import annotations
 import re
 import sqlite3
 
-RENAMES = [
-    ("semaines_audit", "focus_engagement_min", "focus_engagement_min"),
-    ("audit_narrative", "forge_jours_engagement_mois", "forge_jours_engagement_mois"),
-    ("audit_narrative", "jours_engagement_semaine", "jours_engagement_semaine"),
-    ("audit_narrative", "forge_drill_engagement", "forge_drill_engagement"),
-    ("audit_narrative", "plan_drill_engagement", "plan_drill_engagement"),
-]
-
 
 def _columns(conn: sqlite3.Connection, table: str) -> list[str]:
     return [r[1] for r in conn.execute(f"PRAGMA table_info({table})")]
-
-
-def _rename_columns(conn: sqlite3.Connection) -> None:
-    for table, old, new in RENAMES:
-        cols = _columns(conn, table)
-        if old in cols and new not in cols:
-            conn.execute(f"ALTER TABLE {table} RENAME COLUMN {old} TO {new}")
-        elif old in cols and new in cols:
-            # rejeu de 002 après un renommage : ré-ajoute l'ancienne colonne, vide
-            conn.execute(f"UPDATE {table} SET {new} = COALESCE({new}, {old})")
-            conn.execute(f"ALTER TABLE {table} DROP COLUMN {old}")
 
 
 def _rebuild_without_check(conn: sqlite3.Connection, table: str, column: str) -> None:
@@ -84,7 +63,6 @@ def _legacy_mode_codes() -> tuple[str, str]:
 
 def apply(conn: sqlite3.Connection) -> None:
     conn.execute("BEGIN")
-    _rename_columns(conn)
     _rebuild_without_check(conn, "semaines_audit", "mode_actif")
     _rebuild_without_check(conn, "sequences_mode", "lieu")
 
@@ -98,10 +76,4 @@ def apply(conn: sqlite3.Connection) -> None:
             conn.execute(
                 f"UPDATE {table} SET {column} = ? WHERE {column} NOT IN (?, ?)",
                 (ecole, ecole, entreprise),
-            )
-    for table in ("focus_sessions", "system_freezes"):
-        if "piliers" in _columns(conn, table):
-            conn.execute(
-                f"UPDATE {table} SET piliers = replace(piliers, 'FORGE_ENGAGEMENT', 'FORGE_ENGAGEMENT') "
-                "WHERE piliers LIKE '%FORGE_ENGAGEMENT%'"
             )
