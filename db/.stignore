@@ -1,0 +1,7 @@
+// Fichiers transitoires SQLite : ne jamais les synchroniser entre machines.
+// La base doit être fermée proprement (checkpoint WAL) avant bascule.
+*.db-wal
+*.db-shm
+*.db-journal
+// Copies de conflit produites par Syncthing.
+*.sync-conflict-*

@@ -23,3 +23,6 @@ db/*.db-*
 
 # Réglages locaux Claude Code
 .claude/
+
+# Fichiers temporaires de Syncthing
+db/.syncthing.*.tmp
