@@ -814,6 +814,32 @@ CREATE TABLE IF NOT EXISTS npt_notes (
 );
 CREATE INDEX IF NOT EXISTS idx_npt_notes_personne ON npt_notes(personne_id, date_note DESC);
 
+-- Chantiers d'introspection : RETEX, chantier psy, exercice, écueil, défi, qualité, défaut.
+-- personne_id NULL = chantier sur soi-même.
+CREATE TABLE IF NOT EXISTS npt_chantiers (
+    id          INTEGER PRIMARY KEY,
+    personne_id INTEGER REFERENCES npt_personnes(id) ON DELETE CASCADE,
+    type        TEXT    NOT NULL DEFAULT 'RETEX'
+                        CHECK (type IN ('RETEX', 'Chantier psy', 'Exercice', 'Écueil',
+                                        'Défi relationnel', 'Qualité', 'Défaut')),
+    titre       TEXT    NOT NULL,
+    description TEXT    NOT NULL DEFAULT '',
+    statut      TEXT    NOT NULL DEFAULT 'Ouvert'
+                        CHECK (statut IN ('Ouvert', 'En cours', 'Clos')),
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+    updated_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_npt_chantiers_personne ON npt_chantiers(personne_id, statut);
+
+CREATE TABLE IF NOT EXISTS npt_chantier_entrees (
+    id          INTEGER PRIMARY KEY,
+    chantier_id INTEGER NOT NULL REFERENCES npt_chantiers(id) ON DELETE CASCADE,
+    date_entree TEXT    NOT NULL,             -- ISO "2026-05-23"
+    contenu     TEXT    NOT NULL,
+    created_at  TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_npt_chantier_entrees ON npt_chantier_entrees(chantier_id, date_entree DESC);
+
 CREATE VIEW IF NOT EXISTS v_net_worth_actuel AS
 SELECT
     c.source, c.libelle, c.classe_actif,
