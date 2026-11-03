@@ -1,0 +1,8 @@
+[Unit]
+Description=DynaStasie — surveille les demandes de bascule envoyées depuis l'UI
+
+[Path]
+PathExists=__WORKDIR__/data/bascule_request.json
+
+[Install]
+WantedBy=paths.target

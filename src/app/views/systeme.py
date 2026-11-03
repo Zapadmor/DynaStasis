@@ -6,6 +6,8 @@ import io
 import json
 import subprocess
 import sys
+import time
+import uuid
 from pathlib import Path
 
 import streamlit as st
@@ -16,6 +18,8 @@ from src.database.connection import db_session
 _PILIERS_OPTIONS = ["VIGUEUR", "LOGOS", "FORGE", "RÉSONANCE", "FINANCE"]
 
 _ROOT = Path(__file__).resolve().parents[3]
+_BASCULE_REQUEST = _ROOT / "data" / "bascule_request.json"
+_BASCULE_RESULT = _ROOT / "data" / "bascule_result.json"
 
 _TABLES = [
     "semaines_audit",
@@ -394,9 +398,95 @@ def _render_repo_sync() -> None:
     st.markdown("---")
 
 
+def _write_bascule_request(mode: str) -> str:
+    """Ecrit la demande dans data/ (seul canal partagé entre le conteneur et l'hôte) ; un
+    watcher systemd côté hôte la consomme (voir scripts/handle_bascule_request.sh). Le
+    conteneur n'a jamais de clé SSH ni d'accès à Docker, uniquement ce fichier."""
+    nonce = uuid.uuid4().hex
+    _BASCULE_REQUEST.parent.mkdir(parents=True, exist_ok=True)
+    tmp = _BASCULE_REQUEST.with_suffix(".tmp")
+    tmp.write_text(json.dumps({"mode": mode, "nonce": nonce}))
+    tmp.replace(_BASCULE_REQUEST)
+    return nonce
+
+
+def _poll_bascule_result(nonce: str, timeout_s: float = 20.0) -> tuple[bool, str] | None:
+    """Attend le résultat écrit par le watcher hôte. None = pas de réponse (watcher absent
+    ou arrêté — à distinguer d'un échec métier, qui lui renvoie (False, message))."""
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        if _BASCULE_RESULT.exists():
+            try:
+                data = json.loads(_BASCULE_RESULT.read_text())
+            except (json.JSONDecodeError, OSError):
+                time.sleep(0.3)
+                continue
+            if data.get("nonce") == nonce:
+                return bool(data.get("ok")), str(data.get("message", ""))
+        time.sleep(0.5)
+    return None
+
+
+def _render_bascule() -> None:
+    """Bascule entre machines : arrête le conteneur de l'autre, relance celui-ci — un seul
+    écrivain SQLite à la fois. Passe par un fichier dans data/, jamais par une clé SSH ou le
+    socket Docker à l'intérieur du conteneur (voir scripts/handle_bascule_request.sh)."""
+    st.markdown(
+        f'<div style="border-left:3px solid {PALETTE["amber"]};padding:6px 12px;">'
+        f"<strong>Bascule entre machines</strong><br>"
+        f'<span style="font-size:.8rem;opacity:.7;">'
+        f"Arrête le conteneur de l'autre machine, puis relance celui-ci</span>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("")
+
+    if st.button("Basculer ici", key="bascule_go"):
+        nonce = _write_bascule_request("bascule")
+        with st.spinner("Arrêt du conteneur distant, puis redémarrage local…"):
+            result = _poll_bascule_result(nonce)
+        if result is None:
+            st.error(
+                "Pas de réponse du service de bascule côté hôte — vérifiez qu'il est installé "
+                "(scripts/systemd/install.sh) et actif "
+                "(systemctl status dynastasie-bascule.path)."
+            )
+        else:
+            ok, msg = result
+            st.session_state["_bascule_failed"] = not ok
+            (st.success if ok else st.error)(msg)
+            if ok:
+                st.rerun()
+
+    if st.session_state.get("_bascule_failed"):
+        st.warning(
+            "L'arrêt du conteneur distant a échoué. Un échec SSH ne prouve pas que l'autre "
+            "machine est éteinte (le VPN peut être coupé alors qu'elle tourne toujours) — "
+            "vérifiez-le vous-même avant de forcer."
+        )
+        if st.button(
+            "Forcer le redémarrage local (je confirme que l'autre machine est éteinte)",
+            key="bascule_force",
+        ):
+            nonce = _write_bascule_request("force_restart_local")
+            with st.spinner("Redémarrage local forcé…"):
+                result = _poll_bascule_result(nonce)
+            if result is None:
+                st.error("Pas de réponse du service de bascule côté hôte.")
+            else:
+                ok, msg = result
+                (st.success if ok else st.error)(msg)
+                if ok:
+                    st.session_state.pop("_bascule_failed", None)
+                    st.rerun()
+
+    st.markdown("---")
+
+
 def _render_sync() -> None:
     _render_sync_status()
     _render_repo_sync()
+    _render_bascule()
     st.markdown("### Synchronisation des données")
 
     col_v, col_l, col_f = st.columns(3, gap="large")
