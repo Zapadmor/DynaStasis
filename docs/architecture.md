@@ -84,6 +84,7 @@ Les tests d'un repository utilisent la fixture `conn` (base temporaire migrée) 
 | Académique | `cours_ecole` (catalogue et historique de cours, nom historique), `logos_gpa` |
 | Réflexion | `audit_narrative` (hebdo), `audit_trimestriel`, `audit_annuel`, `npt_personnes`, `npt_notes` |
 | Configuration | `profil_contenu` (textes de profil), `score_config`, `modes_config` |
+| Documents | `documents` (notes et rapports markdown, importés par `main.py documents import`) |
 | Vues | `v_score_semaine`, `v_progression_quotidienne`, `v_deep_focus_hebdo`, `v_vigueur_hebdo`, `v_habitudes_hebdo`, `v_net_worth_actuel`, `v_score_params` |
 
 ## Migrations

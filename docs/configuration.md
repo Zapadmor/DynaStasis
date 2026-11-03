@@ -88,6 +88,18 @@ Les textes personnels vivent dans la base (table `profil_contenu`), jamais dans 
 python main.py profile export mon_profil.json
 python main.py profile import mon_profil.json
 ```
+### Documents markdown
+
+Les notes et rapports personnels vivent aussi dans la base (table `documents`), pas dans le dépôt :
+
+```bash
+python main.py documents import ~/mes_notes     # récursif, idempotent (clé = chemin relatif)
+python main.py documents list
+python main.py documents export ~/restauration   # réécrit les fichiers (--ecraser pour remplacer)
+```
+
+La catégorie d'un document est son premier sous-dossier (ou `--categorie`), son titre le premier `# titre`.
+
 
 | Clé | Contenu |
 |---|---|
