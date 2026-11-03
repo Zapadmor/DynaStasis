@@ -1,10 +1,10 @@
 # Dépendances directes de l'application.
 # Régénérer le lockfile : pip-compile --strip-extras -o requirements.txt requirements.in
 pandas
-numpy>=2
+numpy>=2.5.4
 requests
 pyyaml
 plotly
 openpyxl
-streamlit>=1.35
+streamlit>=1.66.1
 sqlite_web
