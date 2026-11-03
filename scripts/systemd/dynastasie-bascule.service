@@ -1,0 +1,15 @@
+[Unit]
+Description=DynaStasie — traite une demande de bascule (arrêt du peer + redémarrage local, ou forçage)
+
+[Service]
+Type=oneshot
+User=__USER__
+WorkingDirectory=__WORKDIR__
+# DYNASTASIS_PEER_SSH (cible SSH de l'autre machine) vit ici, jamais dans le repo — fichier
+# facultatif : sans lui, seul le mode "force_restart_local" (sans SSH) fonctionne.
+EnvironmentFile=-__HOME__/.config/dynastasie/peer.env
+ExecStart=/usr/bin/env bash __WORKDIR__/scripts/handle_bascule_request.sh
+SyslogIdentifier=dynastasie-bascule
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=30
