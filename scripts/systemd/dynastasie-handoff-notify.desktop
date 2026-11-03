@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=DynaStasis - Notification de démarrage
+Comment=Signale si le conteneur DynaStasis attend une confirmation de démarrage
+Exec=/usr/bin/python3 __WORKDIR__/scripts/handoff.py notify
+Icon=view-refresh
+Terminal=false
+X-GNOME-Autostart-enabled=true
