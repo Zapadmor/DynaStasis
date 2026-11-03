@@ -85,6 +85,7 @@ Le détail est dans [docs/configuration.md](docs/configuration.md).
 | `python main.py finance` | résumé financier depuis `data/inbox/` |
 | `python main.py strava-auth` | autorisation OAuth Strava |
 | `python main.py profile export\|import fichier.json` | sauvegarde / restauration du contenu de profil |
+| `python main.py documents import\|export dossier` / `documents list` | documents markdown (notes, rapports) stockés dans la base, hors git |
 
 Variables utiles : `DYNASTASIS_DB` (chemin de la base), `DYNASTASIS_CONFIG` (chemin de `user.toml`), `DYNASTASIS_ENV_FILE` (chemin de `secrets.env`).
 

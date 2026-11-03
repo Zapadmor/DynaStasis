@@ -7,6 +7,7 @@ Commandes :
   init-db        Initialise la base de données SQLite
   seed-demo      Crée une base de démonstration fictive (--db chemin, --base-reelle)
   profile        Contenu de profil en base : `profile export [fichier]` / `profile import fichier.json`
+  documents      Documents markdown en base : `documents import|export dossier` / `documents list`
   app            Lance l'interface Streamlit (défaut)
 
 Les commandes propres à un pilier (vigueur, logos, finance, strava-auth…) sont déclarées dans
@@ -124,6 +125,45 @@ def main() -> int:
         print("Usage: python main.py profile export [fichier] | profile import fichier.json")
         return 1
 
+    if cmd == "documents":
+        import argparse
+
+        from src.core.documents import export_documents, import_documents, list_documents
+
+        parser = argparse.ArgumentParser(
+            prog="main.py documents",
+            description="Documents markdown stockés dans la base (table `documents`).",
+        )
+        sub = parser.add_subparsers(dest="action", required=True)
+        imp = sub.add_parser("import", help="importe les .md d'un dossier (récursif)")
+        imp.add_argument("dossier")
+        imp.add_argument("--categorie", help="catégorie imposée (défaut : premier sous-dossier)")
+        exp = sub.add_parser("export", help="réécrit les documents dans un dossier")
+        exp.add_argument("dossier")
+        exp.add_argument("--ecraser", action="store_true", help="écrase les fichiers existants")
+        sub.add_parser("list", help="liste les documents en base")
+        args = parser.parse_args(sys.argv[2:])
+        try:
+            if args.action == "import":
+                r = import_documents(args.dossier, args.categorie)
+                print(
+                    f"[documents] {r.ajoutes} ajouté(s), {r.modifies} modifié(s), "
+                    f"{r.inchanges} inchangé(s)"
+                )
+            elif args.action == "export":
+                print(
+                    f"[documents] {export_documents(args.dossier, args.ecraser)} fichier(s) écrit(s)"
+                )
+            else:
+                for d in list_documents():
+                    print(
+                        f"{d['id']:>4}  {d['categorie'] or '-':<20}  {d['titre']}  ({d['taille']} o)"
+                    )
+        except (OSError, ValueError) as exc:
+            print(f"Erreur : {exc}", file=sys.stderr)
+            return 1
+        return 0
+
     if cmd == "app":
         import subprocess
         from pathlib import Path
@@ -141,7 +181,7 @@ def main() -> int:
     if cmd in piliers:
         return piliers[cmd].run(sys.argv[2:])
 
-    noyau = ["sync", "git-pull", "init-db", "seed-demo", "profile", "app"]
+    noyau = ["sync", "git-pull", "init-db", "seed-demo", "profile", "documents", "app"]
     print(f"Commande inconnue : {cmd}\nUsage: python main.py [{'|'.join([*noyau, *piliers])}]")
     return 1
 
