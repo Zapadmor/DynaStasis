@@ -5,6 +5,7 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/). Pas
 ## Non publié
 
 ### Ajouté
+- Migration 007 : suppression de la table historique `cours_utc` (contenu déjà copié dans `cours_ecole`).
 - `python main.py documents import|export|list` et table `documents` (migration 006) : notes et rapports markdown stockés dans la base, hors historique git.
 - `python main.py seed-demo` : base de démonstration entièrement fictive (semaines, habitudes, focus, sport, temps d'écran, finances, objectifs, projet à phases, plan de profil), idempotente, avec garde-fous contre l'écrasement d'une base réelle.
 - `DYNASTASIS_DB` : chemin de base configurable ; `docker-compose.demo.yml` pour essayer l'application sans rien configurer.
