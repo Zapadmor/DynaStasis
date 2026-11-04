@@ -87,6 +87,18 @@ Le détail est dans [docs/configuration.md](docs/configuration.md).
 | `python main.py profile export\|import fichier.json` | sauvegarde / restauration du contenu de profil |
 | `python main.py documents import\|export dossier` / `documents list` | documents markdown (notes, rapports) stockés dans la base, hors git |
 
+### Modifier la base depuis un navigateur
+
+L'onglet *Système → SQL* est en lecture seule (`SELECT` uniquement). Pour parcourir et modifier les données avec une interface web, utiliser [`sqlite_web`](https://github.com/coleifer/sqlite-web) (déjà dans `requirements.txt`), **application arrêtée** (un seul écrivain à la fois sur `db/`, voir [installation](docs/installation.md)) :
+
+```bash
+python3 scripts/backup_db.py            # sauvegarde vérifiée avant toute modification
+source env/bin/activate
+sqlite_web db/dynastasie.db             # puis ouvrir http://localhost:8080
+```
+
+Options utiles : `-p 8081` (port), `-r` (lecture seule), `-x` (n'ouvre pas le navigateur), `-P` (mot de passe). Un changement de **structure** passe par une migration `db/migrations/NNN_*.sql` plutôt que par l'interface (voir [architecture](docs/architecture.md)).
+
 Variables utiles : `DYNASTASIS_DB` (chemin de la base), `DYNASTASIS_CONFIG` (chemin de `user.toml`), `DYNASTASIS_ENV_FILE` (chemin de `secrets.env`).
 
 ---
