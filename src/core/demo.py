@@ -617,6 +617,13 @@ class _Seeder:
                  "Fin": (d + timedelta(days=75)).isoformat(), "Focus": "Fraîcheur"},
             ],
         )  # fmt: skip
+        # Jalons du macro-cycle = tâches de l'objectif Vigueur de démonstration
+        with connection.db_session() as conn:
+            vigueur_obj = conn.execute(
+                "SELECT id FROM objectifs WHERE pilier = 'VIGUEUR' ORDER BY id LIMIT 1"
+            ).fetchone()
+        if vigueur_obj:
+            set_profile("vigueur.macro_cycle_objectif", vigueur_obj[0])
         set_profile(
             "logos.plan_carriere",
             {

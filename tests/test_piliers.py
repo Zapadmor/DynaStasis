@@ -67,7 +67,13 @@ def test_pilier_sans_sync_ni_source():
 
 
 def test_commandes_cli_declarees_par_les_piliers():
-    assert set(pillars.commands()) == {"vigueur", "logos", "finance", "strava-auth"}
+    assert set(pillars.commands()) == {
+        "vigueur",
+        "logos",
+        "finance",
+        "strava-auth",
+        "training-counter",
+    }
 
 
 def test_commande_en_double_refusee(monkeypatch):

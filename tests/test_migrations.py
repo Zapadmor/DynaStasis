@@ -127,3 +127,98 @@ def test_failing_migration_keeps_previous_version(tmp_db, tmp_path, monkeypatch)
         with pytest.raises(sqlite3.OperationalError):
             connection._run_migrations(conn)
         assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+
+
+def test_migration_008_sur_base_existante_en_version_7(db):
+    """Régression : schema.sql s'exécute avant les migrations, il ne doit pas référencer
+    des colonnes qu'une migration n'a pas encore ajoutées."""
+    with sqlite3.connect(db) as conn:
+        conn.execute("DROP INDEX idx_ws_client_uuid")
+        conn.execute("ALTER TABLE workout_sessions DROP COLUMN client_uuid")
+        conn.execute("ALTER TABLE workout_session_sets DROP COLUMN rpe")
+        conn.execute("PRAGMA user_version = 7")
+    connection.init_db()
+    assert _version(db) == connection.latest_version() >= 8
+    assert "client_uuid" in _columns(db, "workout_sessions")
+    assert "rpe" in _columns(db, "workout_session_sets")
+    with sqlite3.connect(db) as conn:
+        names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='index'")}
+    assert "idx_ws_client_uuid" in names
+
+
+def test_migration_009_sur_base_existante_en_version_8(db):
+    """Les vues du score référencent workout_min : schema.sql s'exécute avant la migration."""
+    with sqlite3.connect(db) as conn:
+        conn.execute("DROP VIEW IF EXISTS v_score_semaine")
+        for v in [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='view'")]:
+            conn.execute(f'DROP VIEW IF EXISTS "{v}"')
+        conn.execute("ALTER TABLE exercise_library DROP COLUMN unit")
+        conn.execute("ALTER TABLE workout_session_sets DROP COLUMN duration_s")
+        conn.execute("ALTER TABLE workout_session_sets DROP COLUMN emom_minute")
+        conn.execute("ALTER TABLE workout_sessions DROP COLUMN duration_min")
+        conn.execute("ALTER TABLE vigueur_entries DROP COLUMN workout_min")
+        conn.execute("PRAGMA user_version = 8")
+    connection.init_db()
+    assert _version(db) == connection.latest_version() >= 9
+    assert "unit" in _columns(db, "exercise_library")
+    assert {"duration_s", "emom_minute"} <= _columns(db, "workout_session_sets")
+    assert "duration_min" in _columns(db, "workout_sessions")
+    assert "workout_min" in _columns(db, "vigueur_entries")
+
+
+def test_migration_010_fixe_la_fraction_des_pompes_sur_base_existante(db):
+    with sqlite3.connect(db) as conn:
+        conn.execute("ALTER TABLE exercise_library DROP COLUMN rep_factor")
+        conn.execute("ALTER TABLE exercise_library DROP COLUMN bw_fraction")
+        conn.execute(
+            "INSERT INTO exercise_library (name, load_formula) VALUES ('Push Up', 'bw_plus_weight')"
+        )
+        conn.execute(
+            "INSERT INTO exercise_library (name, load_formula) VALUES ('Pull Up', 'bw_plus_weight')"
+        )
+        conn.execute("PRAGMA user_version = 9")
+    connection.init_db()
+    assert _version(db) == connection.latest_version() >= 10
+    with sqlite3.connect(db) as conn:
+        rows = dict(conn.execute("SELECT name, bw_fraction FROM exercise_library"))
+        factors = {r[0] for r in conn.execute("SELECT rep_factor FROM exercise_library")}
+    assert rows == {"Push Up": 0.7, "Pull Up": 1.0}
+    assert factors == {1.0}
+
+
+def test_migration_011_cree_les_tables_du_compteur_sur_base_en_version_10(db):
+    with sqlite3.connect(db) as conn:
+        conn.execute("DROP TABLE intervals_activities")
+        conn.execute("DROP TABLE training_counter")
+        conn.execute("PRAGMA user_version = 10")
+    connection.init_db()
+    assert _version(db) == connection.latest_version() >= 11
+    assert {"id", "start_local", "date_entry", "moving_time_s"} <= _columns(
+        db, "intervals_activities"
+    )
+    assert {"baseline_count", "baseline_date", "first_session_id"} <= _columns(
+        db, "training_counter"
+    )
+    with sqlite3.connect(db) as conn:  # aucune valeur personnelle livrée dans le dépôt
+        assert conn.execute("SELECT COUNT(*) FROM training_counter").fetchone()[0] == 0
+
+
+def test_migration_012_ajoute_le_cote_sur_base_en_version_11(db):
+    with sqlite3.connect(db) as conn:
+        conn.execute("ALTER TABLE workout_session_sets DROP COLUMN side")
+        conn.execute("PRAGMA user_version = 11")
+    connection.init_db()
+    assert _version(db) == connection.latest_version() >= 12
+    assert "side" in _columns(db, "workout_session_sets")
+
+
+def test_migration_013_cree_les_index_des_seances_sur_base_en_version_12(db):
+    with sqlite3.connect(db) as conn:
+        for idx in ("idx_wss_session_ex", "idx_wse_session", "idx_wse_exercise"):
+            conn.execute(f"DROP INDEX {idx}")
+        conn.execute("PRAGMA user_version = 12")
+    connection.init_db()
+    assert _version(db) == connection.latest_version() >= 13
+    with sqlite3.connect(db) as conn:
+        noms = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'index'")}
+    assert {"idx_wss_session_ex", "idx_wse_session", "idx_wse_exercise"} <= noms

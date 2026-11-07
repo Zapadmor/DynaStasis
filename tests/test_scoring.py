@@ -340,3 +340,24 @@ def test_rangs_journee(conn, score, rang):
         )
     row = conn.execute("SELECT score_6, rank FROM v_progression_quotidienne").fetchone()
     assert (row["score_6"], row["rank"]) == (score, rang)
+
+
+def test_minutes_pwa_comptent_dans_le_score(conn):
+    """workout_min (séance mobile) s'ajoute à moving_time_min pour le seuil de séance et le total."""
+    _semaine(conn)
+    _jour(conn, MONDAY, moving_time_min=20, workout_min=10)  # 30 min : atteint le seuil de séance
+    _jour(conn, "2026-03-03", workout_min=30)  # séance PWA seule : compte aussi
+    _jour(conn, "2026-03-04", moving_time_min=29)  # 29 min : pas une séance
+    row = _score(conn)
+    assert row["entrainement_min"] == 89
+    assert row["seances"] == 2
+
+
+def test_minutes_pwa_ne_changent_pas_les_vues_intervals_seules(conn):
+    """L'allure et v_vigueur_hebdo restent calculées sur les minutes Intervals.icu seules."""
+    _semaine(conn)
+    _jour(conn, MONDAY, moving_time_min=40, distance_km=8, workout_min=60)
+    hebdo = conn.execute(
+        "SELECT moving_time_min FROM v_vigueur_hebdo WHERE week_start = ?", (MONDAY,)
+    ).fetchone()
+    assert hebdo[0] == 40
