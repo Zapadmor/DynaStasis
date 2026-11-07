@@ -1,0 +1,15 @@
+[Unit]
+Description=DynaStasie — synchro Logos (temps d'écran ADB) demandée depuis l'UI
+
+[Service]
+Type=oneshot
+User=__USER__
+WorkingDirectory=__WORKDIR__
+# Secrets (SAMSUNG_ADB_*) lus depuis le HOME de l'utilisateur, comme pour la synchro planifiée.
+Environment=HOME=__HOME__
+ExecStart=/usr/bin/env bash __WORKDIR__/scripts/handle_logos_request.sh
+SyslogIdentifier=dynastasie-logos
+StandardOutput=journal
+StandardError=journal
+# mDNS (~10 s) + connexion + collecte ; le verrou peut aussi attendre une synchro en cours
+TimeoutStartSec=300

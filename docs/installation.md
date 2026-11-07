@@ -136,6 +136,10 @@ journalctl -u dynastasie-sync -u dynastasie-backup --since today    # journaux
 systemctl list-timers 'dynastasie-*'
 ```
 
+### Bouton « Sync Écran » depuis le conteneur
+
+En conteneur (réseau pont), le téléphone n'est pas joignable (mDNS absent, `No route to host`). Le bouton *Système → Sync Écran* dépose donc une demande dans `data/logos_request.json` ; le watcher `dynastasie-logos.path` (installé par `install.sh`) lance `main.py sync --only logos` sur l'hôte et écrit `data/logos_result.json`, que l'interface relit. Activer le débogage sans fil du téléphone (jumelage déjà fait une fois), puis cliquer. Si l'interface répond « Pas de réponse du service de synchro côté hôte », relancer `install.sh` et vérifier `systemctl status dynastasie-logos.path` ; les détails sont dans `journalctl -u dynastasie-logos`. Hors conteneur, le bouton lance la synchro en sous-processus avec délai.
+
 ## Dépannage
 
 | Symptôme | Piste |
