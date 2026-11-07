@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# installe les units systemd (synchronisation + sauvegarde + bascule + passage de relais) et active timers/path
+# installe les units systemd (synchronisation + sauvegarde + bascule + synchro Logos + passage de relais) et active timers/path
 # usage : sudo bash scripts/systemd/install.sh
 
 set -e
@@ -18,6 +18,10 @@ sed -e "s|__USER__|$RUN_USER|" -e "s|__WORKDIR__|$REPO_DIR|" -e "s|__HOME__|$RUN
     "$SCRIPT_DIR/dynastasie-bascule.service" > /etc/systemd/system/dynastasie-bascule.service
 sed -e "s|__WORKDIR__|$REPO_DIR|" \
     "$SCRIPT_DIR/dynastasie-bascule.path" > /etc/systemd/system/dynastasie-bascule.path
+sed -e "s|__USER__|$RUN_USER|" -e "s|__WORKDIR__|$REPO_DIR|" -e "s|__HOME__|$RUN_HOME|" \
+    "$SCRIPT_DIR/dynastasie-logos.service" > /etc/systemd/system/dynastasie-logos.service
+sed -e "s|__WORKDIR__|$REPO_DIR|" \
+    "$SCRIPT_DIR/dynastasie-logos.path" > /etc/systemd/system/dynastasie-logos.path
 # Passage de relais : s'ordonne après les tunnels OpenVPN actifs (arrêtés après lui à l'extinction)
 VPN_UNITS="$(systemctl list-units --no-legend --plain 'openvpn@*.service' 2>/dev/null | awk '{print $1}' | tr '\n' ' ')"
 sed -e "s|__USER__|$RUN_USER|" -e "s|__WORKDIR__|$REPO_DIR|" -e "s|__HOME__|$RUN_HOME|" \
@@ -35,13 +39,13 @@ echo "[2/5] Rechargement du daemon systemd…"
 systemctl daemon-reload
 
 echo "[3/5] Activation + démarrage des timers et du watcher de bascule…"
-systemctl enable --now dynastasie-sync.timer dynastasie-backup.timer dynastasie-bascule.path
+systemctl enable --now dynastasie-sync.timer dynastasie-backup.timer dynastasie-bascule.path dynastasie-logos.path
 # Passage de relais : activé pour les prochains démarrages/extinctions, sans le lancer maintenant
 # (un `start` immédiat déciderait pour la session en cours ; `systemctl stop` hors extinction est inerte).
 systemctl enable dynastasie-handoff.service
 
 echo "[4/5] État :"
-systemctl status dynastasie-sync.timer dynastasie-backup.timer dynastasie-bascule.path --no-pager
+systemctl status dynastasie-sync.timer dynastasie-backup.timer dynastasie-bascule.path dynastasie-logos.path --no-pager
 systemctl is-enabled dynastasie-handoff.service
 
 echo ""

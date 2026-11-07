@@ -172,9 +172,11 @@ def _record(source: Source, result: Result) -> None:
             )
             if result.status != IGNOREE:
                 conn.execute(
-                    """INSERT INTO logs_systeme (type_sync, source, statut, message, payload_json)
-                       VALUES (?, ?, ?, ?, ?)""",
+                    """INSERT INTO logs_systeme
+                           (timestamp, type_sync, source, statut, message, payload_json)
+                       VALUES (?, ?, ?, ?, ?, ?)""",
                     (
+                        now,  # heure locale configurée, pas le « localtime » SQLite du conteneur (UTC)
                         source.type_sync,
                         source.key,
                         "ok" if ok else "erreur",

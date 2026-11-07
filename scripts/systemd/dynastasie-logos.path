@@ -1,0 +1,8 @@
+[Unit]
+Description=DynaStasie — surveille les demandes de synchro Logos (ADB) envoyées depuis l'UI
+
+[Path]
+PathExists=__WORKDIR__/data/logos_request.json
+
+[Install]
+WantedBy=paths.target

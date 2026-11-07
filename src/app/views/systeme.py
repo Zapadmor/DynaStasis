@@ -20,6 +20,12 @@ _PILIERS_OPTIONS = ["VIGUEUR", "LOGOS", "FORGE", "RÉSONANCE", "FINANCE"]
 _ROOT = Path(__file__).resolve().parents[3]
 _BASCULE_REQUEST = _ROOT / "data" / "bascule_request.json"
 _BASCULE_RESULT = _ROOT / "data" / "bascule_result.json"
+_LOGOS_REQUEST = _ROOT / "data" / "logos_request.json"
+_LOGOS_RESULT = _ROOT / "data" / "logos_result.json"
+# Le watcher hôte supprime la demande dès qu'il la prend : si elle est encore là après ce délai,
+# il n'est pas installé ou pas actif. La synchro elle-même peut ensuite durer plus longtemps.
+_LOGOS_PRISE_EN_CHARGE_S = 10.0
+_LOGOS_TIMEOUT_S = 240.0
 
 _TABLES = [
     "semaines_audit",
@@ -77,19 +83,70 @@ def _run_vigueur_direct() -> tuple[bool, str]:
         return False, f"{out}\nErreur : {exc}".strip()
 
 
-def _run_logos_direct() -> tuple[bool, str]:
-    """Appel en-process de logos_bot.run() — même env Python que l'app."""
-    buf = io.StringIO()
-    try:
-        sys.path.insert(0, str(_ROOT)) if str(_ROOT) not in sys.path else None
-        from bots.logos_bot import run as _lbot_run  # noqa: PLC0415
+def _en_conteneur() -> bool:
+    """Vrai si l'app tourne dans Docker : réseau pont, donc ni mDNS ni adb vers le téléphone."""
+    return Path("/.dockerenv").exists()
 
-        with contextlib.redirect_stdout(buf):
-            _lbot_run()
-        return True, buf.getvalue().strip() or "Sync Logos terminé."
-    except Exception as exc:
-        out = buf.getvalue().strip()
-        return False, f"{out}\nErreur : {exc}".strip()
+
+def _run_logos_local() -> tuple[bool, str]:
+    """Synchro Logos sur l'hôte : sous-processus avec délai (sync_runner), jamais dans le thread
+    Streamlit. Alimente aussi sync_checkpoints et logs_systeme, comme la synchro planifiée."""
+    from src.core.sync_runner import run_all  # noqa: PLC0415
+
+    results = run_all(only=["logos"])
+    if not results:
+        return (
+            False,
+            "Source logos introuvable ou confiée à un autre processus (DYNASTASIS_SYNC_SKIP).",
+        )
+    r = results[0]
+    if r.status == "ok":
+        return True, r.message or "Sync Logos terminé."
+    return False, r.message or f"Échec de la synchro Logos ({r.status})."
+
+
+def _write_logos_request() -> str:
+    """Demande de synchro déposée dans data/ ; consommée par le watcher hôte
+    (scripts/handle_logos_request.sh), seul canal entre le conteneur et l'hôte."""
+    nonce = uuid.uuid4().hex
+    _LOGOS_REQUEST.parent.mkdir(parents=True, exist_ok=True)
+    tmp = _LOGOS_REQUEST.with_suffix(".tmp")
+    tmp.write_text(json.dumps({"nonce": nonce}))
+    tmp.replace(_LOGOS_REQUEST)
+    return nonce
+
+
+def _run_logos_via_hote(
+    prise_en_charge_s: float | None = None, timeout_s: float | None = None
+) -> tuple[bool, str]:
+    """Synchro Logos déléguée à l'hôte. Distingue 'watcher absent' (demande jamais consommée)
+    d'un échec métier (téléphone introuvable…) renvoyé par le watcher."""
+    prise = _LOGOS_PRISE_EN_CHARGE_S if prise_en_charge_s is None else prise_en_charge_s
+    limite = _LOGOS_TIMEOUT_S if timeout_s is None else timeout_s
+    nonce = _write_logos_request()
+    debut = time.monotonic()
+    while time.monotonic() - debut < limite:
+        if _LOGOS_RESULT.exists():
+            try:
+                data = json.loads(_LOGOS_RESULT.read_text())
+            except (json.JSONDecodeError, OSError):
+                data = {}
+            if data.get("nonce") == nonce:
+                return bool(data.get("ok")), str(data.get("message", ""))
+        if time.monotonic() - debut > prise and _LOGOS_REQUEST.exists():
+            _LOGOS_REQUEST.unlink(missing_ok=True)
+            return False, (
+                "Pas de réponse du service de synchro côté hôte : vérifiez qu'il est installé "
+                "(sudo bash scripts/systemd/install.sh) et actif "
+                "(systemctl status dynastasie-logos.path)."
+            )
+        time.sleep(0.5)
+    return False, f"Délai de {limite:.0f} s dépassé : la synchro hôte n'a pas répondu."
+
+
+def _run_logos() -> tuple[bool, str]:
+    """Point d'entrée du bouton : relais hôte en conteneur, sous-processus local sinon."""
+    return _run_logos_via_hote() if _en_conteneur() else _run_logos_local()
 
 
 def _table_exists(conn, name: str) -> bool:
@@ -525,7 +582,7 @@ def _render_sync() -> None:
         st.markdown("")
         if st.button("Sync Écran", key="sync_logos", use_container_width=True):
             with st.spinner("Synchronisation ADB…"):
-                ok, msg = _run_logos_direct()
+                ok, msg = _run_logos()
             (st.success if ok else st.error)(msg)
             if ok:
                 st.rerun()
