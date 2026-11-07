@@ -31,6 +31,12 @@ def _strava_auth(argv: list[str]) -> int:
     return 0
 
 
+def _training_counter(argv: list[str]) -> int:
+    from src.core.training_counter import main  # noqa: PLC0415
+
+    return main(argv)
+
+
 def _intervals_ok() -> bool:
     from src.config import get_secret  # noqa: PLC0415
 
@@ -77,6 +83,11 @@ PILIER = Pilier(
     ),
     commands=(
         Command("strava-auth", "Autorisation OAuth Strava (scope activity:read_all)", _strava_auth),
+        Command(
+            "training-counter",
+            "Compteur d'entraînements (état, ou `set COUNT --first-session ID`)",
+            _training_counter,
+        ),
     ),
     sources=_sources,
     sync_order=10,

@@ -99,6 +99,10 @@ sqlite_web db/dynastasie.db             # puis ouvrir http://localhost:8080
 
 Options utiles : `-p 8081` (port), `-r` (lecture seule), `-x` (n'ouvre pas le navigateur), `-P` (mot de passe). Un changement de **structure** passe par une migration `db/migrations/NNN_*.sql` plutôt que par l'interface (voir [architecture](docs/architecture.md)).
 
+### Saisir une séance depuis le téléphone
+
+`docker compose up -d api` lance une API et une page installable (PWA) pour saisir une séance de musculation sur mobile, via Tailscale, avec brouillon hors ligne et envoi idempotent. Détails : [docs/installation.md](docs/installation.md#saisie-mobile-pwa-de-séance).
+
 Variables utiles : `DYNASTASIS_DB` (chemin de la base), `DYNASTASIS_CONFIG` (chemin de `user.toml`), `DYNASTASIS_ENV_FILE` (chemin de `secrets.env`).
 
 ---

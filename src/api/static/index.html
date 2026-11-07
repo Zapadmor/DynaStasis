@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0c0b">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<title>Séance</title>
+<style>
+:root{--bg:#0a0c0b;--panel:#111512;--field:#0d100e;--line:#2a322b;--fg:#d3dad2;--mut:#7d887c;--ok:#8fbf5a;--amber:#d6a23a;--bad:#c4533b}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.35 ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;padding:10px 10px 210px}
+h1{font-size:.95rem;margin:0;letter-spacing:.14em;text-transform:uppercase}
+header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+input,select,button{font:inherit;color:inherit;border-radius:2px}
+input,select{background:var(--field);border:1px solid var(--line);padding:9px;width:100%;min-height:44px}
+input:focus,select:focus{outline:1px solid var(--ok)}
+select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--mut) 50%),linear-gradient(135deg,var(--mut) 50%,transparent 50%);background-position:calc(100% - 18px) 55%,calc(100% - 13px) 55%;background-size:5px 5px;background-repeat:no-repeat;padding-right:32px}
+button{background:#151a16;border:1px solid var(--line);min-height:44px;padding:0 12px;text-transform:uppercase;letter-spacing:.07em;font-size:.78rem}
+button:active{background:#1d241e}
+button:disabled{opacity:.45}
+.panel{background:var(--panel);border:1px solid var(--line);padding:8px;margin:8px 0}
+.lbl{color:var(--mut);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase}
+.small{color:var(--mut);font-size:.78rem}
+.line{display:flex;gap:6px;align-items:stretch}.line>select,.line>input{flex:1}.line>button{flex:0 0 auto}
+details.panel>summary{cursor:pointer;color:var(--mut);letter-spacing:.1em;text-transform:uppercase;font-size:.78rem;min-height:30px;display:flex;align-items:center}
+details.panel[open]>summary{color:var(--fg);margin-bottom:6px}
+.card{background:var(--panel);border:1px solid var(--line);margin:10px 0;padding:8px}
+.card.emom{border-color:#5a4a22}
+.ctitle{display:flex;justify-content:space-between;align-items:center;gap:6px;text-transform:uppercase;letter-spacing:.08em}
+.ctitle strong{font-size:.85rem}
+.row{display:grid;grid-template-columns:34px 1fr 1fr 1fr 1fr 46px;gap:5px;align-items:center;margin:5px 0}
+.row.side{grid-template-columns:30px 30px 1.1fr 1fr 1fr .9fr 42px}
+.t.on{color:var(--ok)}
+.row.head{color:var(--mut);font-size:.66rem;text-align:center;letter-spacing:.08em;text-transform:uppercase;margin-bottom:0}
+.row input{text-align:center;padding:8px 2px}
+.t{background:none;border:0;min-height:44px;padding:0;font-weight:700;letter-spacing:0}
+.prev{background:none;border:0;min-height:44px;padding:0;color:var(--mut);font-size:.74rem;letter-spacing:0;text-transform:none}
+.prev:not(:disabled){color:var(--fg);text-decoration:underline dotted}
+.ok{background:var(--field);padding:0;font-weight:700}
+.ok.on{background:var(--ok);border-color:var(--ok);color:#0a0c0b}
+.x{color:var(--bad);background:none;border-color:transparent;min-height:36px;padding:0 8px}
+.add{width:100%;margin-top:6px}
+.seg{display:flex;gap:0}.seg button{flex:1;border-radius:0}.seg button.on{background:var(--ok);border-color:var(--ok);color:#0a0c0b}
+/* EMOM */
+.ehead{position:sticky;top:0;z-index:4;background:#171309;border-bottom:1px solid #5a4a22;margin:-8px -8px 6px;padding:8px}
+.ehead .meta{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.etag{color:var(--amber);letter-spacing:.14em;font-size:.72rem;text-transform:uppercase}
+.etime{font-size:1.9rem;font-weight:300;color:var(--amber);font-variant-numeric:tabular-nums}
+.emin{font-size:.8rem;color:var(--mut);letter-spacing:.06em;text-transform:uppercase}
+.ehead.urgent .etime{color:var(--bad)}
+.gbar{height:3px;background:var(--line);margin:6px 0}.gfill{height:100%;width:0;background:var(--amber)}
+.erow{border:1px solid var(--line);margin:6px 0;padding:6px;background:var(--field)}
+.erow.cur{border-color:var(--amber);background:#17140b}
+.etop{display:flex;gap:8px;align-items:baseline}
+.etop .mn{color:var(--amber);font-weight:700;min-width:30px}
+.etop .nm{flex:1;text-transform:uppercase;letter-spacing:.06em;font-size:.82rem}
+.etop .pv{color:var(--mut);font-size:.72rem}
+.etop .tm{min-width:44px;text-align:right;font-variant-numeric:tabular-nums}
+.ebar{height:10px;background:#1a201b;margin:6px 0;border:1px solid var(--line)}
+.efill{height:100%;width:0;background:var(--amber)}
+.erow.done .efill{background:var(--ok)}.erow.done .tm{color:var(--ok)}
+.erow.late .efill{background:#4a5a47}
+.erow.miss .tm{color:var(--bad)}
+.erow.urgent .efill{background:var(--bad)}
+.efields{display:grid;grid-template-columns:1fr 1fr 1fr 64px;gap:5px;align-items:end}
+.fld label{display:block;color:var(--mut);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase}
+.fld input{text-align:center;padding:8px 2px}
+.ctrls{display:flex;gap:6px;margin-top:6px}.ctrls button{flex:1}
+.sumline{display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--ok);font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--line);padding:2px 2px 2px 8px;margin:6px 0;background:var(--field)}
+.sumline button{min-height:34px}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:20;padding:20px}
+#modal[hidden]{display:none}
+.mbox{background:var(--panel);border:1px solid var(--ok);padding:18px;width:100%;max-width:360px}
+.mtitle{font-size:1.5rem;color:var(--ok);letter-spacing:.06em;text-transform:uppercase;margin-top:10px}
+.mvol{font-size:1.15rem;font-variant-numeric:tabular-nums;margin-bottom:4px}
+/* messages */
+.msg{padding:8px 10px;margin:8px 0;border-left:3px solid;background:var(--panel)}
+.msg.ok{border-color:var(--ok);color:var(--ok)}.msg.err{border-color:var(--bad);color:var(--bad)}.msg.wait{border-color:var(--amber);color:var(--amber)}
+.msg button{margin-left:8px;min-height:36px}
+/* barre d'ajustement et validation */
+#stepper{position:fixed;left:0;right:0;bottom:calc(66px + env(safe-area-inset-bottom));background:#0d100ef2;border-top:1px solid var(--line);padding:6px 10px;z-index:6}
+#stepper[hidden]{display:none}
+.stepbtns{display:flex;gap:5px}.stepbtns button{flex:1;min-height:50px;font-size:.95rem}
+.stepbtns button.on{background:var(--ok);border-color:var(--ok);color:#0a0c0b}
+.big{position:fixed;left:0;right:0;bottom:0;min-height:calc(58px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);font-weight:700;background:var(--ok);border:0;border-top:1px solid #0a0c0b;color:#0a0c0b;font-size:.95rem;border-radius:0;z-index:7}
+</style>
+</head>
+<body>
+<header><h1>Séance</h1><span class="small" id="date"></span></header>
+<div id="status"></div>
+<div id="app"></div>
+<details class="panel" id="settings"><summary>Réglages</summary>
+  <div class="lbl">URL du serveur (vide = cette adresse)</div>
+  <input id="cfg-url" placeholder="http://100.x.y.z:8000" autocapitalize="off" autocomplete="off">
+  <div class="lbl" style="margin-top:6px">Jeton</div>
+  <input id="cfg-token" type="password" autocomplete="off">
+  <div class="lbl" style="margin-top:6px">Poids du corps (kg) <span id="cfg-bw-hint"></span></div>
+  <input id="cfg-bw" inputmode="decimal" placeholder="67">
+  <div class="lbl" style="margin-top:6px">Taille (cm)</div>
+  <input id="cfg-height" inputmode="numeric" placeholder="175">
+  <button id="cfg-save" class="add">Enregistrer</button>
+</details>
+<button class="big" id="finish">Terminer et synchroniser la séance</button>
+<div id="modal" hidden><div class="mbox"><div class="lbl">Séance synchronisée</div><div id="mlines"></div><button id="mok" class="add">OK</button></div></div>
+<script src="app.js"></script>
+</body>
+</html>

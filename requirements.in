@@ -8,3 +8,5 @@ plotly
 openpyxl
 streamlit>=1.66.1
 sqlite_web
+fastapi
+uvicorn

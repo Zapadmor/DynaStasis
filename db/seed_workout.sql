@@ -20,6 +20,9 @@ UPDATE exercise_library SET name = 'Overhead press'  WHERE name = 'Overhead Pres
 UPDATE exercise_library SET name = 'Bench press'     WHERE name = 'Bench Press (Barbell)';
 UPDATE exercise_library SET name = 'Skullcrusher'    WHERE name = 'Skullcrusher (Barbell)';
 
+-- Pompes : ~70 % du poids du corps soulevé (Suprak et al. 2011)
+UPDATE exercise_library SET bw_fraction = 0.7 WHERE name = 'Push Up';
+
 INSERT OR IGNORE INTO workout_templates (name) VALUES ('Force MAX');
 
 -- workout_template_exercises (positions 1-3)

@@ -248,7 +248,10 @@ def _render_weekly_analysis() -> None:
             (selected_id,),
         ).fetchall()
         vig_rows = conn.execute(
-            "SELECT date_entry, hrv, sleep_min, ctl, moving_time_min, steps FROM vigueur_entries"
+            "SELECT date_entry, hrv, sleep_min, ctl,"
+            " CASE WHEN moving_time_min IS NULL AND workout_min IS NULL THEN NULL"
+            " ELSE COALESCE(moving_time_min, 0) + COALESCE(workout_min, 0) END AS moving_time_min,"
+            " steps FROM vigueur_entries"
             " WHERE date_entry >= ? AND date_entry < ?",
             (week_start_str, week_end_str),
         ).fetchall()
