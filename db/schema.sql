@@ -152,13 +152,14 @@ scores AS (
         hl.semaine_id,
         sa2.mode_actif                AS mode_actif,
         ve.sleep_min,
-        ve.moving_time_min,
+        CASE WHEN ve.moving_time_min IS NULL AND ve.workout_min IS NULL THEN NULL
+             ELSE COALESCE(ve.moving_time_min, 0) + COALESCE(ve.workout_min, 0) END AS moving_time_min,
         ve.steps,
         COALESCE(f.focus_min,        0)  AS focus_min,
         COALESCE(fs.focus_strat_min, 0)  AS focus_strat_min,
         COALESCE(sd.screen_min,      0)  AS screen_min,
         CASE
-            WHEN COALESCE(ve.moving_time_min, 0) >= p.jour_sport_min THEN 1
+            WHEN COALESCE(ve.moving_time_min, 0) + COALESCE(ve.workout_min, 0) >= p.jour_sport_min THEN 1
             WHEN EXISTS(SELECT 1 FROM plan_entrainement pe
                         WHERE pe.date_jour = hl.date_log AND pe.is_repos = 1) THEN 1
             ELSE 0
@@ -231,7 +232,8 @@ CREATE TABLE IF NOT EXISTS vigueur_entries (
     sleep_min       REAL,
     steps           INTEGER,
     source          TEXT    NOT NULL DEFAULT 'intervals.icu',
-    fetched_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+    fetched_at      TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+    workout_min     REAL    -- minutes saisies via la PWA (somme du jour) ; non écrasées par la synchro Intervals.icu
 );
 CREATE INDEX IF NOT EXISTS idx_vigueur_date ON vigueur_entries(date_entry DESC);
 
@@ -506,10 +508,10 @@ week_habits AS (
 week_vigueur AS (
     SELECT
         sa.id                                                                    AS semaine_id,
-        COALESCE(SUM(ve.moving_time_min), 0)                                    AS entrainement_min,
+        COALESCE(SUM(COALESCE(ve.moving_time_min, 0) + COALESCE(ve.workout_min, 0)), 0) AS entrainement_min,
         COALESCE(SUM(ve.steps),           0)                                    AS pas_total,
         AVG(ve.sleep_min)                                                       AS sleep_moy,
-        COALESCE(SUM(CASE WHEN ve.moving_time_min >= p.sem_seance_duree_min THEN 1 ELSE 0 END), 0) AS seances
+        COALESCE(SUM(CASE WHEN COALESCE(ve.moving_time_min, 0) + COALESCE(ve.workout_min, 0) >= p.sem_seance_duree_min THEN 1 ELSE 0 END), 0) AS seances
     FROM semaines_audit sa
     CROSS JOIN v_score_params p
     LEFT JOIN vigueur_entries ve
@@ -860,7 +862,10 @@ CREATE TABLE IF NOT EXISTS exercise_library (
     name         TEXT    NOT NULL UNIQUE,
     category     TEXT,
     note         TEXT,
-    load_formula TEXT    NOT NULL DEFAULT 'weight'
+    load_formula TEXT    NOT NULL DEFAULT 'weight',
+    unit         TEXT    NOT NULL DEFAULT 'reps',  -- 'reps' ou 'sec' (statique : reps = secondes tenues)
+    rep_factor   REAL    NOT NULL DEFAULT 1.0,     -- conversion des reps (muscle-up, grips) dans le volume
+    bw_fraction  REAL    NOT NULL DEFAULT 1.0      -- part du poids du corps soulevée (bw_plus_weight)
     -- 'weight'        : charge = poids utilisé
     -- 'bw_plus_weight': charge = poids du corps + lest (tractions, dips)
 );
@@ -899,9 +904,13 @@ CREATE TABLE IF NOT EXISTS workout_sessions (
     note                  TEXT,
     bodyweight_kg         REAL,
     session_volume_kg     REAL,
-    intervals_activity_id TEXT    UNIQUE  -- FK logique vers l'activité Intervals.icu
+    intervals_activity_id TEXT    UNIQUE, -- FK logique vers l'activité Intervals.icu
+    client_uuid           TEXT,             -- identifiant généré par la PWA mobile (envoi idempotent)
+    duration_min          REAL              -- durée de la séance, première à dernière action (PWA)
 );
 CREATE INDEX IF NOT EXISTS idx_ws_date ON workout_sessions(date_entry DESC);
+-- idx_ws_client_uuid (unique, partiel) : créé par la migration 008, après l'ajout de la colonne
+-- sur les bases existantes (schema.sql s'exécute avant les migrations).
 
 CREATE TABLE IF NOT EXISTS workout_session_exercises (
     id                INTEGER PRIMARY KEY,
@@ -915,12 +924,42 @@ CREATE TABLE IF NOT EXISTS workout_session_sets (
     id            INTEGER PRIMARY KEY,
     session_ex_id INTEGER NOT NULL REFERENCES workout_session_exercises(id) ON DELETE CASCADE,
     set_index     INTEGER NOT NULL,
-    set_type      TEXT    NOT NULL,   -- 'W', 'F', '1', '2', ...
+    set_type      TEXT    NOT NULL,   -- 'W', 'F', 'D' (drop), '1', '2', ...
     weight_kg     REAL    NOT NULL DEFAULT 0,
     reps          INTEGER NOT NULL DEFAULT 1,
     completed     INTEGER NOT NULL DEFAULT 0,
     load_kg       REAL,
-    logged_at     TEXT    DEFAULT (datetime('now', 'localtime'))
+    logged_at     TEXT    DEFAULT (datetime('now', 'localtime')),
+    rpe           REAL,
+    duration_s    REAL,                -- EMOM : temps mis pour effectuer la série dans sa minute
+    emom_minute   INTEGER,             -- EMOM : numéro de la minute dans le bloc
+    side          TEXT                 -- série unilatérale : 'D' (droite) ou 'G' (gauche), NULL sinon
+);
+
+-- Index des séances (migration 013)
+CREATE INDEX IF NOT EXISTS idx_wss_session_ex ON workout_session_sets(session_ex_id);
+CREATE INDEX IF NOT EXISTS idx_wse_session ON workout_session_exercises(session_id);
+CREATE INDEX IF NOT EXISTS idx_wse_exercise ON workout_session_exercises(exercise_id);
+
+-- Compteur d'entraînements (voir migration 011)
+CREATE TABLE IF NOT EXISTS intervals_activities (
+    id            TEXT PRIMARY KEY,            -- identifiant Intervals.icu
+    start_local   TEXT NOT NULL,               -- début, heure locale ISO (AAAA-MM-JJTHH:MM:SS)
+    date_entry    TEXT NOT NULL,
+    type          TEXT,
+    name          TEXT,
+    moving_time_s REAL,
+    training_load REAL,
+    fetched_at    TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_intervals_activities_date ON intervals_activities(date_entry);
+-- Point de départ du compteur, saisi localement (`python main.py training-counter set ...`) : aucune valeur
+-- personnelle dans le dépôt. Une seule ligne.
+CREATE TABLE IF NOT EXISTS training_counter (
+    id               INTEGER PRIMARY KEY CHECK (id = 1),
+    baseline_count   INTEGER NOT NULL,         -- valeur du compteur externe avant le premier entraînement compté
+    baseline_date    TEXT    NOT NULL,         -- activités Intervals.icu comptées APRÈS cette date
+    first_session_id INTEGER NOT NULL          -- séances saisies comptées à partir de cet identifiant
 );
 
 CREATE VIEW IF NOT EXISTS v_habitudes_hebdo AS

@@ -42,6 +42,38 @@ ON CONFLICT(date_entry) DO UPDATE SET
 """
 
 
+_UPSERT_ACTIVITY_ROW = """
+INSERT INTO intervals_activities
+    (id, start_local, date_entry, type, name, moving_time_s, training_load, fetched_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
+ON CONFLICT(id) DO UPDATE SET
+    start_local=excluded.start_local, date_entry=excluded.date_entry, type=excluded.type,
+    name=excluded.name, moving_time_s=excluded.moving_time_s,
+    training_load=excluded.training_load, fetched_at=excluded.fetched_at
+"""
+
+
+def _activity_rows(activities: list[dict]) -> list[tuple]:
+    """Une ligne par activité Intervals.icu (celles sans identifiant ou sans date sont ignorées)."""
+    rows = []
+    for act in activities:
+        start = act.get("start_date_local") or ""
+        if not act.get("id") or len(start) < 10:
+            continue
+        rows.append(
+            (
+                str(act["id"]),
+                start,
+                start[:10],
+                act.get("type"),
+                act.get("name"),
+                act.get("moving_time"),
+                act.get("icu_training_load"),
+            )
+        )
+    return rows
+
+
 def _wellness_to_row(entry: dict) -> tuple:
     def _f(v):
         return round(float(v), 2) if v is not None else None
@@ -167,6 +199,7 @@ def run_intervals(lookback_days: int = 180, incremental: bool = True) -> dict:
         act_rows = list(_aggregate_activities(activities).values())
         with db_session() as conn:
             conn.executemany(_UPSERT_ACTIVITIES, act_rows)
+            conn.executemany(_UPSERT_ACTIVITY_ROW, _activity_rows(activities))
         print(
             f"[DB] {len(act_rows)} jours d'activités insérés/mis à jour ({len(activities)} activités)."
         )

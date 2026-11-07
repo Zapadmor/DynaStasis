@@ -1,5 +1,14 @@
+anyio==4.15.1
+    # via
+    #   -c requirements.txt
+    #   httpx
 build==1.6.1
     # via pip-tools
+certifi==2026.7.22
+    # via
+    #   -c requirements.txt
+    #   httpcore
+    #   httpx
 cfgv==3.5.0
     # via pre-commit
 click==8.5.0
@@ -14,8 +23,21 @@ filelock==4.0.12
     # via
     #   python-discovery
     #   virtualenv
+h11==0.16.0
+    # via
+    #   -c requirements.txt
+    #   httpcore
+httpcore==1.0.9
+    # via httpx
+httpx==0.28.1
+    # via -r requirements-dev.in
 identify==2.6.20
     # via pre-commit
+idna==3.20
+    # via
+    #   -c requirements.txt
+    #   anyio
+    #   httpx
 iniconfig==2.3.1
     # via pytest
 nodeenv==1.11.0
@@ -59,6 +81,10 @@ pyyaml==6.0.3
     #   pre-commit
 ruff==0.17.3
     # via -r requirements-dev.in
+typing-extensions==4.16.0
+    # via
+    #   -c requirements.txt
+    #   anyio
 virtualenv==21.14.5
     # via pre-commit
 vulture==2.16

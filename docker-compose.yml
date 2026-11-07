@@ -60,3 +60,51 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  # ── API de saisie mobile (PWA séance) — port 8000 ─────────────────────────
+  # Même image et même base que streamlit. Jeton obligatoire : DYNASTASIS_API_TOKEN
+  # dans secrets.env. Ne démarre que sur une base déjà migrée (lancer streamlit d'abord).
+  # Règle « un seul écrivain » (Syncthing) : n'activer que sur le PC dont la base est active.
+  api:
+    build:
+      context: .
+      target: ${DYNASTASIS_TARGET:-runtime}
+    container_name: dynastasie-api
+    restart: unless-stopped
+    user: "${DYNASTASIS_UID:-1000}:${DYNASTASIS_GID:-1000}"
+    ports:
+      - "8000:8000"
+    environment:
+      DYNASTASIS_DB: /app/dbdata/dynastasie.db
+      DYNASTASIS_API_ORIGINS: ${DYNASTASIS_API_ORIGINS:-}
+    env_file:
+      - path: ${DYNASTASIS_ENV_FILE:-${HOME}/.config/dynastasie/secrets.env}
+        required: false
+    volumes:
+      - ./db:/app/dbdata
+    command:
+      ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    mem_limit: 256m
+    cpus: 1
+    pids_limit: 128
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -1,4 +1,4 @@
-"""Page Vigueur : lecture de la charge, statut de forme, phases du macro-cycle, écran sur 7 jours."""
+"""Page Vigueur : courbe de charge, pauses du système, phases du macro-cycle et leurs jalons."""
 
 from __future__ import annotations
 
@@ -17,60 +17,68 @@ def statut_phase(debut: str, fin: str, aujourd_hui: datetime.date) -> str:
     return "EN COURS"
 
 
-def statut_forme(tsb: float | None) -> str:
-    """Zone de forme selon le TSB (Training Stress Balance)."""
-    if tsb is None:
-        return "—"
-    if tsb < -30:
-        return "SURMENAGE"
-    if tsb < -10:
-        return "OPTIMAL"
-    if tsb < 5:
-        return "ZONE GRISE"
-    if tsb < 20:
-        return "FRESH"
-    return "TRANSITION"
-
-
-def libelle_jour(date_iso: str) -> str:
-    """« 2026-10-05 » → « 05/10 » (jour/mois), pour les petits graphiques à 7 points."""
-    return f"{date_iso[8:10]}/{date_iso[5:7]}"
-
-
-def donnees_charge() -> tuple[list[dict], list[dict], list[dict]]:
-    """(semaines, 7 derniers jours, charge quotidienne), chacun du plus ancien au plus récent.
-
-    Listes vides si la base n'a pas encore les tables (première ouverture)."""
+def charge_quotidienne() -> list[dict]:
+    """CTL/ATL/TSB/TSS quotidiens, du plus ancien au plus récent (liste vide si base non prête)."""
     try:
         with db_session() as conn:
-            semaines = repo.hebdo(conn, 26)
-            jours = repo.derniers_jours(conn, 7)
-            quotidien = repo.charge_quotidienne(conn)
-    except Exception:
-        return [], [], []
-    return (
-        sorted(semaines, key=lambda r: r["week_start"]),
-        sorted(jours, key=lambda r: r["date_entry"]),
-        quotidien,
-    )
-
-
-def ecran_top_apps() -> list[dict]:
-    try:
-        with db_session() as conn:
-            return repo.ecran_top_apps(conn, 5)
+            return repo.charge_quotidienne(conn)
     except Exception:
         return []
 
 
-def ecran_total_heures() -> float | None:
+def pauses() -> list[dict]:
+    """Périodes de gel du système (liste vide si la table n'existe pas encore)."""
     try:
         with db_session() as conn:
-            return repo.ecran_total_heures(conn) or None
+            return repo.pauses(conn)
     except Exception:
-        return None
+        return []
 
 
-def resume_seance(session_id: int) -> dict | None:
-    with db_session() as conn:
-        return repo.resume_seance(conn, session_id)
+def bandes_pauses(
+    freezes: list[dict], depuis: str, jusqu_a: str, max_label: int = 28
+) -> list[dict]:
+    """Pauses à tracer sur la courbe, rognées à la fenêtre [depuis, jusqu_a] (dates ISO).
+
+    Une pause hors fenêtre est écartée. Le libellé est « PAUSE · raison » (raison tronquée)."""
+    bandes = []
+    for f in freezes:
+        debut, fin = f["date_debut"][:10], f["date_fin"][:10]
+        if fin < depuis or debut > jusqu_a:
+            continue
+        raison = (f.get("raison") or "").strip()
+        if len(raison) > max_label:
+            raison = raison[: max_label - 1].rstrip() + "…"
+        bandes.append(
+            {
+                "x0": max(debut, depuis),
+                "x1": min(fin, jusqu_a),
+                "label": f"PAUSE · {raison}" if raison else "PAUSE",
+            }
+        )
+    return bandes
+
+
+def grouper_jalons(
+    phases: list[dict], taches: list[dict]
+) -> tuple[list[tuple[dict, list[dict]]], list[dict]]:
+    """Rattache chaque tâche (jalon) à la phase du macro-cycle qui contient son échéance.
+
+    Une phase couvre [Début, Début de la suivante[ (la dernière : jusqu'à sa Fin incluse), ce qui évite
+    qu'une échéance tombant à la jointure de deux phases compte deux fois. Retourne
+    ([(phase, jalons)], jalons sans échéance ou hors de toutes les phases), triés par échéance."""
+    ordonnees = sorted(phases, key=lambda p: p["Début"])
+    groupes: list[tuple[dict, list[dict]]] = [(p, []) for p in ordonnees]
+    autres: list[dict] = []
+    for tache in sorted(taches, key=lambda t: (t.get("date_echeance") or "9999", t["id"])):
+        jour = (tache.get("date_echeance") or "")[:10]
+        cible = None
+        if jour:
+            for i, p in enumerate(ordonnees):
+                derniere = i == len(ordonnees) - 1
+                fin_exclue = None if derniere else ordonnees[i + 1]["Début"]
+                if p["Début"] <= jour and (jour <= p["Fin"] if derniere else jour < fin_exclue):
+                    cible = groupes[i][1]
+                    break
+        (cible if cible is not None else autres).append(tache)
+    return groupes, autres

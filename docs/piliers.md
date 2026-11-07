@@ -7,7 +7,7 @@ DynaStasis range la vie hebdomadaire en cinq piliers, chacun une page. Tous sont
 | **Journal de bord** | page d'accueil | radar des piliers, score, paliers vers le score parfait, historique sur 13 semaines, emploi du temps |
 | **Forge** | `Forge` | objectifs et tâches, finances, projets en cours (phases et cases à cocher) |
 | **Logos** | `Logos` | cursus académique (GPA, UV suivies, catalogue) et plan de carrière |
-| **Vigueur** | `Vigueur` | charge d'entraînement (CTL/ATL/TSB), HRV, sommeil, pas, journal de séances, records et prédictions |
+| **Vigueur** | `Vigueur` | courbe de charge (CTL/ATL/TSB) avec les pauses du système, macro-cycle et ses jalons cochables (tâches d'un objectif de la Forge), saisie des séances après coup |
 | **Résonnance** | `Résonnance` | audit hebdomadaire, trimestriel et annuel, notes sur les proches |
 | **Système** | `Système` | pauses (gel), synchronisations, thèmes, état de la base, logs, requêtes SQL |
 
