@@ -49,6 +49,7 @@ def _client(monkeypatch, faux, host=""):
     monkeypatch.setattr(stc.time, "sleep", lambda _: None)
     monkeypatch.setattr(stc, "_MDNS_WAIT_S", 0)
     monkeypatch.setattr(stc, "get_secret", lambda *a, **k: None)
+    monkeypatch.setattr(stc, "open_ports", lambda host, *a, **k: [])  # jamais de vrai balayage
     client = stc.AdbClient(host=host or None)
     monkeypatch.setattr(client, "_adb", faux)
     return client
@@ -83,6 +84,51 @@ def test_repli_sur_l_ip_configuree(monkeypatch):
     client = _client(monkeypatch, faux, host="192.168.1.5")
     client.connect()
     assert client.target == "192.168.1.5:5555"
+
+
+def test_balayage_des_ports_quand_le_mdns_est_vide(monkeypatch):
+    """Le téléphone n'annonce rien (cas réel) : on retrouve le port par balayage de l'hôte."""
+    faux = _Faux(
+        devices=[_liste(), _liste(), _liste("192.168.1.20:42987 device product:x")],
+        connect_out="connected to 192.168.1.20:42987",
+    )
+    client = _client(monkeypatch, faux, host="192.168.1.20")
+    monkeypatch.setattr(stc, "open_ports", lambda host, *a, **k: [42987])
+    client.connect()
+    assert client.target == "192.168.1.20:42987"
+    assert ["connect", "192.168.1.20:42987"] in faux.appels
+
+
+def test_balayage_deconnecte_le_port_de_jumelage(monkeypatch):
+    """Un port ouvert qui ne donne pas d'appareil (jumelage) est déconnecté, le suivant essayé."""
+    faux = _Faux(
+        devices=[
+            _liste(),
+            _liste(),
+            _liste("192.168.1.20:43969 offline"),
+            _liste("192.168.1.20:42987 device"),
+        ],
+        connect_out="connected",
+    )
+    client = _client(monkeypatch, faux, host="192.168.1.20")
+    monkeypatch.setattr(stc, "open_ports", lambda host, *a, **k: [43969, 42987])
+    client.connect()
+    assert ["disconnect", "192.168.1.20:43969"] in faux.appels
+    assert client.target == "192.168.1.20:42987"
+
+
+def test_open_ports_trouve_un_port_local():
+    import socket
+
+    with socket.socket() as srv:
+        srv.bind(("127.0.0.1", 0))
+        srv.listen()
+        port = srv.getsockname()[1]
+        assert stc.open_ports("127.0.0.1", range(port - 2, port + 3), timeout=0.2) == [port]
+
+
+def test_open_ports_hote_inconnu():
+    assert stc.open_ports("hote-inexistant.invalid", range(30000, 30010)) == []
 
 
 def test_echec_sans_ip_ni_mdns(monkeypatch):

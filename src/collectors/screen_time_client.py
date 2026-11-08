@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import contextlib
 import os
 import re
 import shutil
+import socket
 import subprocess
 import time
 from datetime import datetime
@@ -26,6 +28,14 @@ _ADB_BIN = next((str(p) for p in _ADB_CANDIDATES if p.exists()), "adb")
 # Service mDNS publié par le débogage sans fil d'Android 11+ (jumelé une fois, sans IP fixe).
 _MDNS_CONNECT = "_adb-tls-connect._tcp"
 _MDNS_WAIT_S = 10  # attente maximale de l'apparition de l'appareil après découverte
+
+# Le débogage sans fil d'Android 11+ écoute sur un port aléatoire de cette plage (observé :
+# 39309, 42987, 46253). Quand le téléphone n'annonce pas son service en mDNS, on le cherche
+# par balayage de ce seul intervalle, et uniquement sur l'hôte configuré (SAMSUNG_ADB_HOST).
+_SCAN_PORTS = range(30000, 50001)
+_SCAN_TIMEOUT_S = 0.3
+_SCAN_BUDGET_S = 15.0
+_SCAN_WORKERS = 500
 
 _EVENT_RE = re.compile(r'time="(?P<ts>[^"]+)" type=(?P<type>\S+) package=(?P<pkg>\S+)')
 
@@ -102,6 +112,35 @@ def parse_mdns_services(output: str) -> list[str]:
         if _MDNS_CONNECT in parts and parts[-1] != _MDNS_CONNECT:
             addrs.append(parts[-1])
     return addrs
+
+
+def open_ports(
+    host: str,
+    ports: range = _SCAN_PORTS,
+    timeout: float = _SCAN_TIMEOUT_S,
+    budget_s: float = _SCAN_BUDGET_S,
+) -> list[int]:
+    """Ports TCP ouverts de `host` dans `ports` ; liste vide si l'hôte ne se résout pas ou ne
+    répond pas. Le balayage s'arrête après `budget_s` secondes quoi qu'il arrive."""
+    from concurrent.futures import ThreadPoolExecutor  # noqa: PLC0415
+
+    try:
+        ip = socket.gethostbyname(host)
+    except OSError:
+        return []
+    fin = time.monotonic() + budget_s
+
+    def sonde(port: int) -> int | None:
+        if time.monotonic() > fin:
+            return None
+        try:
+            with socket.create_connection((ip, port), timeout=timeout):
+                return port
+        except OSError:
+            return None
+
+    with ThreadPoolExecutor(max_workers=_SCAN_WORKERS) as pool:
+        return sorted(p for p in pool.map(sonde, ports) if p is not None)
 
 
 def _is_system_package(package: str) -> bool:
@@ -205,6 +244,25 @@ class AdbClient:
                 return device
             time.sleep(1)
 
+    def _connect_via_port_scan(self) -> str | None:
+        """Repli quand le téléphone n'annonce pas son service mDNS : cherche le port du débogage
+        sans fil sur l'hôte configuré et s'y connecte. Le port du jumelage, ouvert seulement
+        pendant le jumelage, est essayé comme les autres et ignoré s'il ne donne pas d'appareil."""
+        if not self.host:
+            return None
+        for port in open_ports(self.host):
+            addr = f"{self.host}:{port}"
+            try:
+                self._adb(["connect", addr], timeout=8)
+            except (subprocess.TimeoutExpired, OSError):
+                continue
+            device = self._find_connected_device()
+            if device:
+                return device
+            with contextlib.suppress(subprocess.TimeoutExpired, OSError):
+                self._adb(["disconnect", addr], timeout=5)
+        return None
+
     def connect(self) -> None:
         self._ensure_new_daemon()
 
@@ -220,7 +278,13 @@ class AdbClient:
             self.target = found
             return
 
-        # 3. Repli sur l'IP configurée
+        # 3. Téléphone sans annonce mDNS : balayage des ports de l'hôte configuré
+        scanned = self._connect_via_port_scan()
+        if scanned:
+            self.target = scanned
+            return
+
+        # 4. Dernier repli : IP et port configurés (port fixe 5555 des anciens Android)
         if not self.target:
             raise RuntimeError(
                 "Aucun téléphone trouvé par mDNS. Vérifiez que le débogage sans fil est activé, "
@@ -238,7 +302,7 @@ class AdbClient:
         output = (result.stdout + result.stderr).lower()
         if "connected" not in output and "already" not in output:
             raise RuntimeError(
-                f"ADB connect vers {self.target} a échoué (mDNS n'a rien trouvé non plus) : "
+                f"ADB connect vers {self.target} a échoué (mDNS n'a rien trouvé, ni le balayage des ports) : "
                 f"{(result.stdout + result.stderr).strip()}"
             )
 
