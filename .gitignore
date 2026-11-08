@@ -26,3 +26,7 @@ db/*.db-*
 
 # Fichiers temporaires de Syncthing
 db/.syncthing.*.tmp
+
+# Archive locale des .fit (contiennent le GPS) : jamais dans le dépôt
+ARCHIVE_FIT/
+*.fit
