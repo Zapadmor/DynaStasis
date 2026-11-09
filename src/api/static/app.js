@@ -22,7 +22,24 @@ const norm = (t) => t.trim().toLowerCase();
 
 let cfg = { url: "", token: "", bodyweight_kg: null, height_cm: null, keyboard: false, ...load(K.cfg, {}) };
 let catalog = { exercises: [], previous: {}, templates: [], ...load(K.cat, {}) };
-let draft = load(K.draft, null) || newDraft();
+const DRAFT_MAX_AGE_H = 12; // au-delà, un brouillon n'est plus supposé en cours
+const MAX_WORK_MIN = 600; // identique au garde-fou de l'API (WorkoutIn)
+
+// Brouillon rechargé au démarrage : un brouillon sans activité depuis plus de 12 h est proposé à la suppression,
+// sinon son `worked_from` (posé à la première action, jamais remis à zéro) fausserait la durée de la séance.
+function loadDraft() {
+  const d = load(K.draft, null);
+  if (!d) return newDraft();
+  const last = new Date(d.worked_to || d.worked_from || d.started_at).getTime();
+  if (!(nowMs() - last > DRAFT_MAX_AGE_H * 3600000)) return d;
+  const done = (d.exercises || []).reduce((a, e) => a + e.sets.filter((s) => s.completed).length, 0);
+  if (!done) { localStorage.removeItem(K.draft); return newDraft(); }
+  const quand = new Date(last).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+  return confirm(`Un brouillon de séance (${done} série(s) validée(s)) n'a pas bougé depuis le ${quand}.\n`
+    + "OK = le jeter et repartir à zéro. Annuler = le garder.")
+    ? (localStorage.removeItem(K.draft), newDraft()) : d;
+}
+let draft = loadDraft();
 let status = null; // {kind: ok|err|wait, text}
 
 function newDraft() {
@@ -623,11 +640,31 @@ async function refreshCatalog() {
   } catch { /* hors ligne : catalogue en cache */ }
 }
 
+// Durée > 600 min : le début est presque sûrement faux (vieux brouillon). Propose de saisir l'heure de début réelle
+// (aujourd'hui) ; retourne false si la durée reste hors limites, pour ne pas envoyer une séance que l'API refuserait.
+function corrigerDureeExcessive() {
+  if (!draft.worked_from) return true;
+  const mins = () => (new Date(draft.worked_to || draft.worked_from) - new Date(draft.worked_from)) / 60000;
+  if (mins() >= 0 && mins() <= MAX_WORK_MIN) return true;
+  const rep = prompt(`Durée calculée : ${Math.round(mins())} min (maximum ${MAX_WORK_MIN}). Le début est sans doute faux.\n`
+    + "Heure de début réelle d'aujourd'hui (HH:MM) ? Annuler pour ne rien envoyer.");
+  const m = rep && rep.trim().match(/^(\d{1,2})[:h](\d{2})$/);
+  if (!m || +m[1] > 23 || +m[2] > 59) { setStatus("err", "Envoi annulé : début de séance à corriger."); return false; }
+  const p = (n) => String(n).padStart(2, "0"), d = new Date(nowMs());
+  draft.worked_from = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(+m[1])}:${m[2]}:00`;
+  if (new Date(draft.worked_to || draft.worked_from) < new Date(draft.worked_from)) draft.worked_to = nowIso();
+  draft.started_at = draft.worked_from;
+  persist();
+  if (mins() < 0 || mins() > MAX_WORK_MIN) { setStatus("err", "Durée toujours hors limites : envoi annulé."); return false; }
+  return true;
+}
+
 $("finish").onclick = () => {
   const done = draft.exercises.reduce((a, e) => a + e.sets.filter((s) => s.completed).length, 0);
   if (!done) { setStatus("err", "Aucune série validée à envoyer."); return; }
   const skipped = unvalidatedCount();
   let dur = "";
+  if (!corrigerDureeExcessive()) return;
   if (draft.worked_from) {
     const m = (new Date(draft.worked_to || draft.worked_from) - new Date(draft.worked_from)) / 60000;
     dur = `, durée ${Math.round(m * 10) / 10} min`;
