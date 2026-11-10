@@ -24,6 +24,13 @@ Modes (lancés par le service systemd dynastasie-handoff.service, sur l'hôte) :
   notify  À l'ouverture de session : affiche une notification si le démarrage attend une
           confirmation et que le conteneur local est toujours arrêté.
 
+Limite connue (service Syncthing) : Syncthing tourne ici comme service UTILISATEUR (`systemctl
+--user`) : à l'extinction il est arrêté avant ce service système, et au démarrage il n'est lancé qu'à
+l'ouverture de session. `stop` et `start` voient alors une API injoignable, jugent la synchro
+incomplète et s'abandonnent (journal « Synchronisation incomplète », état attente_confirmation).
+C'est le comportement sûr, mais le passage automatique ne fonctionne pas : utiliser « Basculer ici »
+(mode `bascule`, lancé en session, Syncthing disponible). Piste non retenue : `loginctl enable-linger`.
+
 Limite connue : Syncthing ne copie rien tant que les deux machines ne sont pas allumées en même
 temps. Une machine qui s'éteint pendant que l'autre est éteinte garde ses dernières écritures
 chez elle ; c'est pourquoi un démarrage seul demande une confirmation (icône du bureau).
