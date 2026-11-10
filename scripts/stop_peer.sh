@@ -1,30 +1,18 @@
 #!/usr/bin/env bash
-# Bascule complete : stoppe le conteneur DynaStasis de l'AUTRE machine, PUIS relance celui
-# de la machine courante — dans cet ordre, jamais l'inverse.
-# La base SQLite (db/, synchronisée par Syncthing) n'a qu'un seul écrivain valable à la fois :
-# avec `restart: unless-stopped`, le conteneur revient tout seul après un reboot, donc "je ne
-# lance pas l'app des deux côtés" n'est pas fiable sans l'arrêter explicitement avant de switcher.
-# Si l'arrêt distant échoue (peer injoignable : éteint, VPN coupé, ou autre), le conteneur local
-# n'est PAS relancé — un échec SSH ne prouve pas que l'autre machine est éteinte ; mieux vaut
-# s'arrêter là que de risquer un double écrivain.
-# DYNASTASIS_PEER_SSH : cible SSH de l'autre machine (ex. utilisateur@hote-distant) — pas de défaut,
-# mieux vaut échouer clairement que deviner la mauvaise machine.
+# Bascule complète vers CETTE machine : arrête les conteneurs locaux, puis ceux de l'AUTRE machine
+# (Streamlit ET API), attend la fin de la synchro Syncthing, vérifie la base, et seulement alors
+# relance les conteneurs locaux — dans cet ordre, jamais l'inverse.
+#
+# La logique vit dans `handoff.py bascule` (testée) ; ce script n'en est que le point d'entrée.
+# La base SQLite (db/, synchronisée par Syncthing) n'a qu'un seul écrivain valable à la fois.
+# Vérifications avant de relancer ici :
+#   - le pair est joignable et ses conteneurs sont réellement arrêtés ;
+#   - Syncthing (API locale) : scan forcé, dossier à 100 % chez le pair, rien en attente ;
+#   - sha256 de db/dynastasie.db identique des deux côtés, sans WAL en attente ;
+#   - integrity_check ok, aucun -wal résiduel local, aucun nouveau fichier sync-conflict.
+# Au moindre doute, rien n'est relancé et le message dit pourquoi (code 1). Un échec SSH ne prouve
+# pas que l'autre machine est éteinte ; pour forcer malgré tout, utiliser le bouton « Forcer ».
+# DYNASTASIS_PEER_SSH : cible SSH de l'autre machine (pas de défaut : mieux vaut échouer clairement).
 # Nécessite une clé SSH acceptée sans mot de passe sur l'autre machine (BatchMode=yes).
 set -u
-
-CONTENEUR="${DYNASTASIS_CONTAINER:-dynastasie-streamlit}"
-PEER="${DYNASTASIS_PEER_SSH:-}"
-
-if [ -z "$PEER" ]; then
-    echo "DYNASTASIS_PEER_SSH non défini (ex. export DYNASTASIS_PEER_SSH=utilisateur@hote-distant)" >&2
-    exit 2
-fi
-
-if ! ssh -o BatchMode=yes -o ConnectTimeout=6 "$PEER" "docker stop '$CONTENEUR'"; then
-    echo "Échec de l'arrêt du conteneur distant ($PEER) — conteneur local NON relancé." >&2
-    echo "Si l'autre machine est réellement éteinte (vérifié, pas supposé), relancer soi-même :" >&2
-    echo "  docker restart '$CONTENEUR'" >&2
-    exit 1
-fi
-
-docker restart "$CONTENEUR"
+exec python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/handoff.py" bascule

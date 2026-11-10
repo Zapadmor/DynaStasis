@@ -15,7 +15,7 @@ set -u
 WORKDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REQUEST="$WORKDIR/data/bascule_request.json"
 RESULT="$WORKDIR/data/bascule_result.json"
-CONTENEUR="${DYNASTASIS_CONTAINER:-dynastasie-streamlit}"
+CONTENEURS="${DYNASTASIS_CONTAINERS:-dynastasie-streamlit,dynastasie-api}"
 
 if [ ! -f "$REQUEST" ]; then
     exit 0
@@ -57,8 +57,17 @@ case "$MODE" in
         fi
         ;;
     force_restart_local)
-        OUTPUT="$(docker restart "$CONTENEUR" 2>&1)"
-        if [ $? -eq 0 ]; then
+        # Streamlit d'abord (il migre la base), puis l'API ; un conteneur absent est ignoré.
+        OUTPUT=""
+        RC=0
+        FIRST=1
+        for C in ${CONTENEURS//,/ }; do
+            OUT="$(docker restart "$C" 2>&1)"
+            if [ $? -ne 0 ] && [ "$FIRST" = "1" ]; then RC=1; fi
+            OUTPUT="$OUTPUT$OUT "
+            FIRST=0
+        done
+        if [ "$RC" -eq 0 ]; then
             write_result true "Redémarrage local forcé : $OUTPUT"
         else
             write_result false "$OUTPUT"

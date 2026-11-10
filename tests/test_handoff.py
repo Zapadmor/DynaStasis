@@ -68,6 +68,10 @@ class HoteFactice:
             "sync": True,
             "st_pret": True,
             "start_ok": True,
+            "saine": True,
+            "egales": True,
+            "pair_arrete": True,
+            "conflits": set(),
         } | etat
         self.appels: list[str] = []
 
@@ -97,6 +101,22 @@ class HoteFactice:
 
     def syncthing_pret(self):
         return self.etat["st_pret"]
+
+    def arreter_pair(self):
+        self.appels.append("arreter_pair")
+        return self.etat["pair_arrete"]
+
+    def base_saine(self):
+        return self.etat["saine"], "detail"
+
+    def empreintes_identiques(self, attente=40):
+        return self.etat["egales"]
+
+    def conflits(self):
+        # appelé avant puis après : le 2e appel renvoie les conflits « nouveaux »
+        self.etat.setdefault("_n", 0)
+        self.etat["_n"] += 1
+        return set() if self.etat["_n"] == 1 else set(self.etat["conflits"])
 
     def synchronise(self, *, scanner=False):
         self.appels.append(f"synchronise(scanner={scanner})")
@@ -197,3 +217,166 @@ def test_notifier_signale_l_attente_puis_s_efface_quand_le_conteneur_tourne(tmp_
     assert handoff.lire_statut()["etat"] == handoff.RIEN
     assert handoff.notifier(HoteFactice(local=False)) == 0  # plus rien à signaler
     assert not envois
+
+
+# --- Vérifications de la base et bascule --------------------------------------------------------
+
+
+def _creer_base(chemin: Path) -> None:
+    import sqlite3
+
+    conn = sqlite3.connect(chemin)
+    conn.execute("CREATE TABLE t (x INTEGER)")
+    conn.execute("INSERT INTO t VALUES (1)")
+    conn.commit()
+    conn.close()
+
+
+def test_inspecter_base_saine(tmp_path):
+    base = tmp_path / "dynastasie.db"
+    _creer_base(base)
+    ok, detail = handoff.inspecter_base(base)
+    assert ok, detail
+
+
+def test_inspecter_base_absente(tmp_path):
+    ok, _ = handoff.inspecter_base(tmp_path / "dynastasie.db")
+    assert not ok
+
+
+def test_inspecter_base_corrompue(tmp_path):
+    base = tmp_path / "dynastasie.db"
+    _creer_base(base)
+    octets = bytearray(base.read_bytes())
+    octets[4096 : 4096 + 64] = b"\xff" * 64  # écrase le début de la page 2 (la table)
+    base.write_bytes(bytes(octets))
+    ok, _ = handoff.inspecter_base(base)
+    assert not ok
+
+
+def test_inspecter_base_refuse_un_wal_residuel(tmp_path):
+    base = tmp_path / "dynastasie.db"
+    _creer_base(base)
+    (tmp_path / "dynastasie.db-wal").write_bytes(b"x" * 32)
+    ok, detail = handoff.inspecter_base(base)
+    assert not ok
+    assert "WAL" in detail
+    assert (tmp_path / "dynastasie.db-wal").exists()  # rien n'est supprimé
+
+
+def test_inspecter_base_tolere_un_wal_vide(tmp_path):
+    base = tmp_path / "dynastasie.db"
+    _creer_base(base)
+    (tmp_path / "dynastasie.db-wal").write_bytes(b"")
+    assert handoff.inspecter_base(base)[0]
+
+
+def test_lister_conflits(tmp_path):
+    (tmp_path / "dynastasie.db").write_bytes(b"")
+    (tmp_path / "dynastasie.sync-conflict-20261110-101159-L55IXMM.db").write_bytes(b"")
+    assert handoff.lister_conflits(tmp_path) == {
+        "dynastasie.sync-conflict-20261110-101159-L55IXMM.db"
+    }
+    assert handoff.lister_conflits(tmp_path / "absent") == set()
+
+
+def test_empreinte_fichier(tmp_path):
+    f = tmp_path / "a"
+    f.write_bytes(b"abc")
+    assert handoff.empreinte_fichier(f).startswith("ba7816bf")
+
+
+@pytest.mark.parametrize(
+    ("surcharge", "attendu"),
+    [
+        ({}, handoff.DEMARRER),
+        ({"pair_joignable": False}, handoff.ABANDON),
+        ({"pair_arrete": False}, handoff.ABANDON),
+        ({"synchronise": False}, handoff.ABANDON),
+        ({"empreintes_egales": False}, handoff.ABANDON),
+        ({"base_saine": False}, handoff.ABANDON),
+        ({"conflits_nouveaux": True}, handoff.ABANDON),
+    ],
+)
+def test_decider_bascule(surcharge, attendu):
+    args = (
+        dict(
+            pair_joignable=True,
+            pair_arrete=True,
+            synchronise=True,
+            empreintes_egales=True,
+            base_saine=True,
+            conflits_nouveaux=False,
+        )
+        | surcharge
+    )
+    action, raison = handoff.decider_bascule(**args)
+    assert action == attendu
+    assert raison
+
+
+def test_bascule_nominale_arrete_tout_verifie_puis_demarre_en_dernier():
+    hote = HoteFactice()
+    action, _ = handoff.executer_bascule(hote)
+    assert action == handoff.DEMARRER
+    assert hote.appels == [
+        "arreter_local",
+        "arreter_pair",
+        "synchronise(scanner=True)",
+        "demarrer_local",
+    ]
+
+
+@pytest.mark.parametrize(
+    "surcharge",
+    [
+        {"joignable": False},
+        {"pair_arrete": False},
+        {"sync": False},
+        {"egales": False},
+        {"saine": False},
+        {"conflits": {"dynastasie.sync-conflict-x.db"}},
+    ],
+)
+def test_bascule_ne_demarre_jamais_si_une_verification_echoue(surcharge):
+    hote = HoteFactice(**surcharge)
+    action, raison = handoff.executer_bascule(hote)
+    assert action == handoff.ABANDON
+    assert raison
+    assert "demarrer_local" not in hote.appels
+
+
+def test_bascule_echec_arret_local_ne_touche_pas_au_pair():
+    hote = HoteFactice(stop_ok=False)
+    action, _ = handoff.executer_bascule(hote)
+    assert action == handoff.ABANDON
+    assert "arreter_pair" not in hote.appels
+
+
+def test_arret_base_locale_non_saine_n_est_pas_propagee():
+    hote = HoteFactice(saine=False)
+    action, _ = handoff.executer_arret(hote)
+    assert action == handoff.ABANDON
+    assert "demarrer_pair" not in hote.appels
+
+
+def test_arret_empreintes_differentes_ne_demarre_pas_le_pair():
+    hote = HoteFactice(egales=False)
+    action, _ = handoff.executer_arret(hote)
+    assert action == handoff.ABANDON
+    assert "demarrer_pair" not in hote.appels
+
+
+def test_demarrage_base_non_saine_attend_confirmation():
+    hote = HoteFactice(local=False, saine=False)
+    action, raison = handoff.executer_demarrage(hote)
+    assert action == handoff.ATTENTE
+    assert "demarrer_local" not in hote.appels
+    assert "refusée" in raison
+
+
+def test_demarrage_empreintes_differentes_attend_confirmation():
+    hote = HoteFactice(local=False, egales=False)
+    action, _ = handoff.executer_demarrage(hote)
+    assert action == handoff.ATTENTE
+    assert "demarrer_local" not in hote.appels

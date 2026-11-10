@@ -467,7 +467,7 @@ def _write_bascule_request(mode: str) -> str:
     return nonce
 
 
-def _poll_bascule_result(nonce: str, timeout_s: float = 20.0) -> tuple[bool, str] | None:
+def _poll_bascule_result(nonce: str, timeout_s: float = 200.0) -> tuple[bool, str] | None:
     """Attend le résultat écrit par le watcher hôte. None = pas de réponse (watcher absent
     ou arrêté — à distinguer d'un échec métier, qui lui renvoie (False, message))."""
     deadline = time.monotonic() + timeout_s
@@ -492,7 +492,7 @@ def _render_bascule() -> None:
         f'<div style="border-left:3px solid {PALETTE["amber"]};padding:6px 12px;">'
         f"<strong>Bascule entre machines</strong><br>"
         f'<span style="font-size:.8rem;opacity:.7;">'
-        f"Arrête le conteneur de l'autre machine, puis relance celui-ci</span>"
+        f"Arrête les conteneurs des deux machines, vérifie synchro et base, puis relance celui-ci</span>"
         f"</div>",
         unsafe_allow_html=True,
     )
@@ -500,7 +500,9 @@ def _render_bascule() -> None:
 
     if st.button("Basculer ici", key="bascule_go"):
         nonce = _write_bascule_request("bascule")
-        with st.spinner("Arrêt du conteneur distant, puis redémarrage local…"):
+        with st.spinner(
+            "Arrêt des conteneurs, synchro et vérification de la base, puis redémarrage local…"
+        ):
             result = _poll_bascule_result(nonce)
         if result is None:
             st.error(
@@ -517,9 +519,10 @@ def _render_bascule() -> None:
 
     if st.session_state.get("_bascule_failed"):
         st.warning(
-            "L'arrêt du conteneur distant a échoué. Un échec SSH ne prouve pas que l'autre "
-            "machine est éteinte (le VPN peut être coupé alors qu'elle tourne toujours) — "
-            "vérifiez-le vous-même avant de forcer."
+            "La bascule a été refusée ou a échoué (voir le message ci-dessus). Un échec SSH ne "
+            "prouve pas que l'autre machine est éteinte (le VPN peut être coupé alors qu'elle "
+            "tourne toujours), et un refus de vérification signale une base peut-être "
+            "incohérente — vérifiez-le vous-même avant de forcer."
         )
         if st.button(
             "Forcer le redémarrage local (je confirme que l'autre machine est éteinte)",

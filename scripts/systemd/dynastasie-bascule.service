@@ -1,5 +1,5 @@
 [Unit]
-Description=DynaStasie — traite une demande de bascule (arrêt du peer + redémarrage local, ou forçage)
+Description=DynaStasie — traite une demande de bascule (arrêt du peer, vérifications synchro/base, redémarrage local, ou forçage)
 
 [Service]
 Type=oneshot
@@ -12,4 +12,5 @@ ExecStart=/usr/bin/env bash __WORKDIR__/scripts/handle_bascule_request.sh
 SyslogIdentifier=dynastasie-bascule
 StandardOutput=journal
 StandardError=journal
-TimeoutStartSec=30
+# Arrêt local + pair (30 s chacun) + synchro Syncthing (~60 s) + empreintes (~40 s) + démarrage.
+TimeoutStartSec=200
