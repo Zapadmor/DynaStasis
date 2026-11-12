@@ -99,3 +99,11 @@ def test_profile_roundtrip_and_defaults(tmp_db, tmp_path):
 def test_profile_missing_table_returns_default(tmp_db):
     # base non initialisée : pas d'exception, valeur par défaut
     assert profile.get_profile("x", 42) == 42
+
+
+def test_get_secret_all_garde_les_doublons(tmp_path, monkeypatch):
+    env = tmp_path / "secrets.env"
+    env.write_text("DEMO_HOST=a\n# note\nDEMO_HOST=b\nDEMO_HOST=a\n")
+    monkeypatch.setenv("DYNASTASIS_ENV_FILE", str(env))
+    monkeypatch.delenv("DEMO_HOST", raising=False)
+    assert config.get_secret_all("demo", "host") == ["a", "b"]

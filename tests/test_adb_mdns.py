@@ -43,14 +43,15 @@ class _Faux:
         return subprocess.CompletedProcess(args, 0, out, "")
 
 
-def _client(monkeypatch, faux, host=""):
+def _client(monkeypatch, faux, host="", hotes=(), port=None):
     monkeypatch.setattr(stc.shutil, "which", lambda _: "/usr/bin/adb")
     monkeypatch.setattr(stc.AdbClient, "_ensure_new_daemon", lambda self: None)
     monkeypatch.setattr(stc.time, "sleep", lambda _: None)
     monkeypatch.setattr(stc, "_MDNS_WAIT_S", 0)
     monkeypatch.setattr(stc, "get_secret", lambda *a, **k: None)
+    monkeypatch.setattr(stc, "get_secret_all", lambda *a, **k: list(hotes))
     monkeypatch.setattr(stc, "open_ports", lambda host, *a, **k: [])  # jamais de vrai balayage
-    client = stc.AdbClient(host=host or None)
+    client = stc.AdbClient(host=host or None, port=port)
     monkeypatch.setattr(client, "_adb", faux)
     return client
 
@@ -79,11 +80,41 @@ def test_mdns_utilise_avant_l_ip_perimee(monkeypatch):
     assert [a for a in faux.appels if a[0] == "connect"] == [["connect", "192.168.1.20:41234"]]
 
 
-def test_repli_sur_l_ip_configuree(monkeypatch):
+def test_repli_sur_l_ip_et_le_port_configures(monkeypatch):
     faux = _Faux(devices=[_liste()], connect_out="connected to 192.168.1.5:5555")
-    client = _client(monkeypatch, faux, host="192.168.1.5")
+    client = _client(monkeypatch, faux, host="192.168.1.5", port=5555)
     client.connect()
     assert client.target == "192.168.1.5:5555"
+
+
+def test_aucun_port_5555_par_defaut(monkeypatch):
+    """Sans SAMSUNG_ADB_PORT, jamais de `adb connect <ip>:5555` (inexistant en débogage sans fil)."""
+    faux = _Faux(devices=[_liste()])
+    client = _client(monkeypatch, faux, hotes=["192.168.1.26"])
+    with pytest.raises(RuntimeError, match="192.168.1.26"):
+        client.connect()
+    assert not any(a[0] == "connect" for a in faux.appels)
+
+
+def test_balayage_essaie_chaque_hote(monkeypatch):
+    """Trois réseaux, trois SAMSUNG_ADB_HOST : le téléphone n'est que sur le troisième."""
+    faux = _Faux(
+        devices=[_liste(), _liste(), _liste("192.168.1.237:42987 device")],
+        connect_out="connected",
+    )
+    hotes = ["192.168.1.26", "192.168.0.36", "192.168.1.237"]
+    client = _client(monkeypatch, faux, hotes=hotes)
+    vus = []
+
+    def ports(host, *a, **k):
+        vus.append(host)
+        return [42987] if host == "192.168.1.237" else []
+
+    monkeypatch.setattr(stc, "open_ports", ports)
+    client.connect()
+    assert vus == hotes
+    assert client.host == "192.168.1.237"
+    assert client.target == "192.168.1.237:42987"
 
 
 def test_balayage_des_ports_quand_le_mdns_est_vide(monkeypatch):
@@ -138,8 +169,8 @@ def test_echec_sans_ip_ni_mdns(monkeypatch):
 
 
 def test_echec_avec_ip_mentionne_mdns(monkeypatch):
-    client = _client(monkeypatch, _Faux(devices=[_liste()]), host="192.168.1.5")
-    with pytest.raises(RuntimeError, match="mDNS n'a rien trouvé"):
+    client = _client(monkeypatch, _Faux(devices=[_liste()]), host="192.168.1.5", port=5555)
+    with pytest.raises(RuntimeError, match="mDNS et balayage"):
         client.connect()
 
 

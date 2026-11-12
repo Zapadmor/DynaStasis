@@ -67,6 +67,34 @@ def _load_legacy_toml() -> dict[str, Any]:
     return _toml_cache
 
 
+def get_secret_all(section: str, key: str) -> list[str]:
+    """Toutes les valeurs d'une variable répétée dans le fichier d'environnement (ordre du fichier).
+
+    Sert aux réglages à plusieurs valeurs (ex. une `SAMSUNG_ADB_HOST` par réseau Wi-Fi).
+    Une variable d'environnement du processus passe en premier. Sans doublon, un seul élément."""
+    name = _var_name(section, key)
+    valeurs: list[str] = []
+    if os.environ.get(name):
+        valeurs.append(os.environ[name])
+    path = env_file_path()
+    if path.is_file():
+        for raw in path.read_text(encoding="utf-8").splitlines():
+            ligne = raw.strip()
+            if not ligne or ligne.startswith("#") or "=" not in ligne:
+                continue
+            nom, _, valeur = ligne.partition("=")
+            valeur = valeur.strip()
+            if len(valeur) >= 2 and valeur[0] == valeur[-1] and valeur[0] in "\"'":
+                valeur = valeur[1:-1]
+            if nom.strip() == name and valeur and valeur not in valeurs:
+                valeurs.append(valeur)
+    if not valeurs:
+        seul = get_secret(section, key)
+        if seul:
+            valeurs.append(seul)
+    return valeurs
+
+
 def get_secret(section: str, key: str, default: str = "") -> str:
     """Retourne le secret identifié par (section, key)."""
     name = _var_name(section, key)

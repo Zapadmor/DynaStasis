@@ -10,7 +10,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from src.config import get_secret
+from src.config import get_secret, get_secret_all
 from src.core.tz import now_local
 
 # ADB stocke ses clés RSA dans $HOME/.android — on force HOME pour que le
@@ -163,9 +163,13 @@ class AdbClient:
             )
         # L'IP est facultative : sans elle (ou si elle est périmée après un changement de réseau),
         # l'appareil jumelé est retrouvé par mDNS.
-        self.host = host or get_secret("samsung", "adb_host") or ""
-        self.port = port or int(get_secret("samsung", "adb_port") or 5555)
-        self.target = f"{self.host}:{self.port}" if self.host else ""
+        # Plusieurs `SAMSUNG_ADB_HOST` possibles (un par réseau Wi-Fi) : on les essaie tous.
+        self.hosts = [host] if host else get_secret_all("samsung", "adb_host")
+        self.host = self.hosts[0] if self.hosts else ""
+        # Le port fixe n'existe qu'avec l'ancien `adb tcpip` : repli utilisé seulement s'il est configuré.
+        port_cfg = port or get_secret("samsung", "adb_port") or ""
+        self.port = int(port_cfg) if port_cfg else None
+        self.target = f"{self.host}:{self.port}" if self.host and self.port else ""
 
     def _adb(self, args: list[str], timeout: int = 60) -> subprocess.CompletedProcess:
         return subprocess.run(
@@ -248,19 +252,19 @@ class AdbClient:
         """Repli quand le téléphone n'annonce pas son service mDNS : cherche le port du débogage
         sans fil sur l'hôte configuré et s'y connecte. Le port du jumelage, ouvert seulement
         pendant le jumelage, est essayé comme les autres et ignoré s'il ne donne pas d'appareil."""
-        if not self.host:
-            return None
-        for port in open_ports(self.host):
-            addr = f"{self.host}:{port}"
-            try:
-                self._adb(["connect", addr], timeout=8)
-            except (subprocess.TimeoutExpired, OSError):
-                continue
-            device = self._find_connected_device()
-            if device:
-                return device
-            with contextlib.suppress(subprocess.TimeoutExpired, OSError):
-                self._adb(["disconnect", addr], timeout=5)
+        for host in self.hosts:
+            for port in open_ports(host):
+                addr = f"{host}:{port}"
+                try:
+                    self._adb(["connect", addr], timeout=8)
+                except (subprocess.TimeoutExpired, OSError):
+                    continue
+                device = self._find_connected_device()
+                if device:
+                    self.host = host
+                    return device
+                with contextlib.suppress(subprocess.TimeoutExpired, OSError):
+                    self._adb(["disconnect", addr], timeout=5)
         return None
 
     def connect(self) -> None:
@@ -284,12 +288,15 @@ class AdbClient:
             self.target = scanned
             return
 
-        # 4. Dernier repli : IP et port configurés (port fixe 5555 des anciens Android)
+        # 4. Dernier repli : IP et port fixes, seulement si SAMSUNG_ADB_PORT est configuré
+        #    (ancien `adb tcpip`). Plus de port 5555 par défaut : il n'existe pas en débogage sans fil.
         if not self.target:
+            essayes = f" Hôtes essayés : {', '.join(self.hosts)}." if self.hosts else ""
             raise RuntimeError(
-                "Aucun téléphone trouvé par mDNS. Vérifiez que le débogage sans fil est activé, "
-                "que le téléphone est sur le même réseau et déjà jumelé, ou définissez "
-                "SAMSUNG_ADB_HOST dans secrets.env."
+                "Aucun téléphone trouvé (mDNS, puis balayage des ports 30000-50000)."
+                + essayes
+                + " Vérifiez que le débogage sans fil est activé, que le téléphone est sur le même "
+                "réseau et déjà jumelé, et que SAMSUNG_ADB_HOST contient l'IP de ce réseau."
             )
         try:
             result = self._adb(["connect", self.target], timeout=8)
@@ -302,7 +309,7 @@ class AdbClient:
         output = (result.stdout + result.stderr).lower()
         if "connected" not in output and "already" not in output:
             raise RuntimeError(
-                f"ADB connect vers {self.target} a échoué (mDNS n'a rien trouvé, ni le balayage des ports) : "
+                f"ADB connect vers {self.target} a échoué (mDNS et balayage des ports sans résultat) : "
                 f"{(result.stdout + result.stderr).strip()}"
             )
 
