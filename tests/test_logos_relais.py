@@ -5,6 +5,8 @@ import json
 import threading
 import time
 
+import pytest
+
 from src.app.views import systeme
 from src.core import sync_runner
 
@@ -69,6 +71,46 @@ def test_run_logos_choisit_le_relais_en_conteneur(monkeypatch):
     assert systeme._run_logos() == (True, "hote")
     monkeypatch.setattr(systeme, "_en_conteneur", lambda: False)
     assert systeme._run_logos() == (True, "local")
+
+
+def _src(key, configure=True):
+    return sync_runner.Source(key, key, ("true",), lambda: configure, "non configuré")
+
+
+def test_sync_all_en_conteneur_confie_logos_a_l_hote(monkeypatch):
+    """« Tout synchroniser » en conteneur : logos exclu du run local, lancé par le relais hôte."""
+    appels = {}
+
+    def faux_run_all(**kw):
+        appels.update(kw)
+        return [sync_runner.Result("vigueur", sync_runner.OK)]
+
+    monkeypatch.setattr(systeme, "_en_conteneur", lambda: True)
+    monkeypatch.setattr(sync_runner, "run_all", faux_run_all)
+    monkeypatch.setattr(sync_runner, "default_sources", lambda: [_src("logos"), _src("vigueur")])
+    monkeypatch.setattr(systeme, "_run_logos_via_hote", lambda: (False, "téléphone introuvable"))
+    results = systeme._sync_all()
+    assert appels == {"skip": ["logos"]}
+    logos = next(r for r in results if r.key == "logos")
+    assert logos.failed and "introuvable" in logos.message
+    assert [r.key for r in results] == ["vigueur", "logos"]
+
+
+def test_sync_all_en_conteneur_sans_logos_configure_n_appelle_pas_l_hote(monkeypatch):
+    monkeypatch.setattr(systeme, "_en_conteneur", lambda: True)
+    monkeypatch.setattr(sync_runner, "run_all", lambda **kw: [])
+    monkeypatch.setattr(sync_runner, "default_sources", lambda: [_src("logos", configure=False)])
+    monkeypatch.setattr(systeme, "_run_logos_via_hote", lambda: pytest.fail("relais appelé"))
+    assert systeme._sync_all() == []
+
+
+def test_sync_all_hors_conteneur_lance_tout_en_local(monkeypatch):
+    appels = []
+    monkeypatch.setattr(systeme, "_en_conteneur", lambda: False)
+    monkeypatch.setattr(sync_runner, "run_all", lambda **kw: appels.append(kw) or ["tout"])
+    monkeypatch.setattr(systeme, "_run_logos_via_hote", lambda: pytest.fail("relais appelé"))
+    assert systeme._sync_all() == ["tout"]
+    assert appels == [{}]
 
 
 def test_local_echec_adb_n_est_pas_un_succes(monkeypatch):

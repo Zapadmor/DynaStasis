@@ -149,6 +149,24 @@ def _run_logos() -> tuple[bool, str]:
     return _run_logos_via_hote() if _en_conteneur() else _run_logos_local()
 
 
+def _sync_all() -> list:
+    """« Tout synchroniser » : les sources du processus courant, et logos au bon endroit.
+
+    En conteneur (réseau pont, pas d'adb), logos n'est pas lancé ici : il est confié à l'hôte par
+    le même relais que « Sync Écran », qui enregistre lui-même checkpoint et journal. Hors conteneur,
+    `run_all` lance tout en local, logos compris."""
+    from src.core.sync_runner import ERREUR, OK, Result, default_sources, run_all  # noqa: PLC0415
+
+    if not _en_conteneur():
+        return run_all()
+    results = run_all(skip=["logos"])
+    logos = next((src for src in default_sources() if src.key == "logos"), None)
+    if logos is not None and logos.configured():
+        ok, msg = _run_logos_via_hote()
+        results.append(Result("logos", OK if ok else ERREUR, message=msg))
+    return results
+
+
 def _table_exists(conn, name: str) -> bool:
     return (
         conn.execute(
@@ -385,7 +403,7 @@ _STATUT_LIBELLES = {
 def _render_sync_status() -> None:
     """État par source (dernière réussite, dernière erreur, durée) + synchronisation globale."""
     st.markdown("### État des sources")
-    from src.core.sync_runner import default_sources, exit_code, run_all  # noqa: PLC0415
+    from src.core.sync_runner import default_sources, exit_code  # noqa: PLC0415
 
     with db_session() as conn:
         rows = {}
@@ -416,7 +434,7 @@ def _render_sync_status() -> None:
 
     if st.button("Synchroniser toutes les sources configurées", key="sync_all"):
         with st.spinner("Synchronisation en cours (chaque source est isolée)…"):
-            results = run_all()
+            results = _sync_all()
         actives = [r for r in results if r.status != "non_configure"]
         if not actives:
             st.info("Aucune source configurée : rien à synchroniser (voir docs/configuration.md).")
@@ -429,6 +447,9 @@ def _render_sync_status() -> None:
                     if r.failed
                 )
             )
+            for r in actives:
+                if r.failed and r.message:
+                    st.caption(f"{r.key} : {r.message[-300:]}")
         else:
             st.success(f"{len(actives)} source(s) synchronisée(s).")
     st.markdown("---")
