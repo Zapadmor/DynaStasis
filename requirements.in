@@ -6,7 +6,7 @@ requests
 pyyaml
 plotly
 openpyxl
-streamlit>=1.66.1
+streamlit>=1.67.0
 sqlite_web
 fastapi
 uvicorn
