@@ -49,7 +49,7 @@ packaging==26.3
     #   pytest
     #   virtualenv
     #   wheel
-pip-tools==7.6.2
+pip-tools==7.7.0
     # via -r requirements-dev.in
 platformdirs==4.12.4
     # via virtualenv
@@ -79,7 +79,7 @@ pyyaml==6.0.3
     # via
     #   -c requirements.txt
     #   pre-commit
-ruff==0.17.3
+ruff==0.17.5
     # via -r requirements-dev.in
 typing-extensions==4.16.0
     # via
